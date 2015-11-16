@@ -28,10 +28,10 @@ using namespace std;
 
 /***************************************************************************/
 /* globals variables */
-
+static pid_t currentPid = 0; 			//pid of currently running process
 
 /***************************************************************************/
-/* prototypes */
+/* prototypdes */
 
 
 
@@ -53,7 +53,18 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks);
 	
  ***************************************************************************/
 //son
-void vm_create(pid_t pid);
+void vm_create(pid_t pid){
+	assume that we have a global map name PtMap <pid, unsigned int *pointer>
+	pid is the process id and a pointer to its own page table. This pointer 
+	will be initialized to null
+
+	pointer = new (nothrow) unsigned long int;
+	if (pointer == NULL){
+		exit(1);
+	}
+
+	PtMap.insert< pair(<int, unsigned long int*> (pid, pointer));
+}
 
 /***************************************************************************
  Function: vm_switch
@@ -63,7 +74,9 @@ void vm_create(pid_t pid);
 	
  ***************************************************************************/
 //son
-void vm_switch(pid_t pid);
+void vm_switch(pid_t pid){
+	currentPid = pid;
+}
 
 /***************************************************************************
  Function: vm_fault
