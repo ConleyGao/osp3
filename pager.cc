@@ -165,12 +165,4 @@ void * vm_extend();
 int vm_syslog(void *message, unsigned int len);
 
 
-
-
-
-
-
-
-
-
 /****** END OF FILE *********************************************************/
