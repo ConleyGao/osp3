@@ -15,20 +15,36 @@
 
 /*****************************************************************************/
 /* include files */
-
+#include <cstdlib>
+#include <iostream>
+#include <vm_pager.h>
+#include <map>
+#include <string>
+#include <vector>
 
 /***************************************************************************/
 /* constants */
+static const int FAILURE = -1;
+static const int SUCCESS = 0;
+static const unsigned long int INVALID = 0x00000000;
 
 using namespace std;
 
 /***************************************************************************/
 /* structs */
-
+typedef struct node {
+	page_table_entry_t
+	unsigned int modBit;
+	unsigned int refBit;
+	node *next;
+} node;
 
 /***************************************************************************/
 /* globals variables */
 static pid_t currentPid = 0; 			//pid of currently running process
+static node* head;
+static unsigned long int *currAppArena;
+map <pid_t, unsigned long int*> appArenaMap;
 
 /***************************************************************************/
 /* prototypdes */
@@ -43,7 +59,16 @@ static pid_t currentPid = 0; 			//pid of currently running process
 	
  ***************************************************************************/
 //venecia
-void vm_init(unsigned int memory_pages, unsigned int disk_blocks);
+void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
+
+	head = new (nothrow) node;
+	if (head == NULL){
+		exit(FAILURE);
+	}
+
+	currAppArena = new unsigned long int [VM_ARENA_SIZE];
+
+}
 
 /***************************************************************************
  Function: vm_create
@@ -54,16 +79,20 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks);
  ***************************************************************************/
 //son
 void vm_create(pid_t pid){
-	assume that we have a global map name PtMap <pid, unsigned int *pointer>
-	pid is the process id and a pointer to its own page table. This pointer 
-	will be initialized to null
 
-	pointer = new (nothrow) unsigned long int;
+	pointer = new unsigned long int [VM_ARENA_SIZE];
 	if (pointer == NULL){
 		exit(1);
 	}
 
+	for (unsigned int i = 0; i < VM_ARENA_SIZE; i++)}{
+		pointer[i] = INVALID;
+	}
+
 	PtMap.insert< pair(<int, unsigned long int*> (pid, pointer));
+
+	
+
 }
 
 /***************************************************************************
@@ -76,6 +105,7 @@ void vm_create(pid_t pid){
 //son
 void vm_switch(pid_t pid){
 	currentPid = pid;
+	currAppArena = PtMap[pid];
 }
 
 /***************************************************************************
