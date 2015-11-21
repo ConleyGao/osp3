@@ -33,7 +33,7 @@ using namespace std;
 /***************************************************************************/
 /* structs */
 typedef struct node {
-	page_table_entry_t
+	// page_table_entry_t page;
 	unsigned int modBit;
 	unsigned int refBit;
 	node *next;
@@ -45,6 +45,7 @@ static pid_t currentPid = 0; 			//pid of currently running process
 static node* head;
 static unsigned long int *currAppArena;
 map <pid_t, unsigned long int*> appArenaMap;
+
 
 /***************************************************************************/
 /* prototypdes */
@@ -89,6 +90,7 @@ void vm_create(pid_t pid){
 		pointer[i] = INVALID;
 	}
 
+	//what is ptmap?
 	PtMap.insert< pair(<int, unsigned long int*> (pid, pointer));
 
 	
@@ -123,11 +125,27 @@ int vm_fault(void *addr, bool write_flag);
  Inputs:   
  Returns:  nothing
  Description:
-	
- ***************************************************************************/
-//adela
-void vm_destroy();
+	Called when current process exits
+ 	Deallocate all resources held by the current process 
+ 	(page table, physical pages, disk blocks, etc.)
+  ***************************************************************************/
+ //adela
+ void vm_destroy();
+/*
+	i have no parameters so i believe that i will be dealing with 
+	instances of page_table_entry_t; and
+	typedef struct {
+    	page_table_entry_t ptes[VM_ARENA_SIZE/VM_PAGESIZE];
+	} page_table_t;
 
+	also other structs that we create would need to be deallocated
+
+	very dependent
+
+	use delete
+*/
+
+ 
 /***************************************************************************
  Function: vm_extend
  Inputs:   
