@@ -91,6 +91,8 @@ void vm_create(pid_t pid){
 
 	PtMap.insert< pair(<int, unsigned long int*> (pid, pointer));
 
+	
+
 }
 
 /***************************************************************************
@@ -121,27 +123,10 @@ int vm_fault(void *addr, bool write_flag);
  Inputs:   
  Returns:  nothing
  Description:
- 	Called when current process exits
- 	Deallocate all resources held by the current process 
- 	(page table, physical pages, disk blocks, etc.)
+	
  ***************************************************************************/
 //adela
 void vm_destroy();
-/*
-	i have no parameters so i believe that i will be dealing with 
-	instances of page_table_entry_t; and
-	typedef struct {
-    	page_table_entry_t ptes[VM_ARENA_SIZE/VM_PAGESIZE];
-	} page_table_t;
-
-	also other structs that we create would need to be deallocated
-
-	very dependent
-
-	use delete
- */
-
-
 
 /***************************************************************************
  Function: vm_extend
@@ -153,7 +138,6 @@ void vm_destroy();
 //together
 void * vm_extend();
 
-
 /***************************************************************************
  Function: vm_syslog
  Inputs:   
@@ -163,6 +147,14 @@ void * vm_extend();
  ***************************************************************************/
 //together
 int vm_syslog(void *message, unsigned int len);
+
+
+
+
+
+
+
+
 
 
 /****** END OF FILE *********************************************************/
