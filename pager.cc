@@ -32,8 +32,8 @@ using namespace std;
 
 /***************************************************************************/
 /* structs */
-typedef struct node {
-	// page_table_entry_t page;
+typedef struct {
+	page_table_t* pageTableP; 
 	unsigned int modBit;
 	unsigned int refBit;
 	node *next;
@@ -41,15 +41,18 @@ typedef struct node {
 
 /***************************************************************************/
 /* globals variables */
-static pid_t currentPid = 0; 			//pid of currently running process
+static pid_t currentPid = 0; 					//pid of currently running process
 static node* head;
-static unsigned long int *currAppArena;
-map <pid_t, unsigned long int*> appArenaMap;
-
+static unsigned long int *CurrAppArena;
+static unsigned int *PhysicalMemP;
+map <pid_t, unsigned long int*> AppArenaMap;	//arena map
+map <pid_t, page_table_t*> PTMap;				//page table map
 
 /***************************************************************************/
 /* prototypdes */
+unsigned long pageTranslate(unsigned long vpage){
 
+}
 
 
 /***************************************************************************
@@ -67,7 +70,14 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 		exit(FAILURE);
 	}
 
-	currAppArena = new unsigned long int [VM_ARENA_SIZE];
+	page_table_base_register = new (nothrow) page_table_t;
+	if (page_table_base_register == NULL){
+		exit(FAILURE);
+	}
+
+	CurrAppArena = new unsigned long int [VM_ARENA_SIZE];
+
+	PhysicalMemP = new unsigned int [memory_pages];
 
 }
 
@@ -90,8 +100,7 @@ void vm_create(pid_t pid){
 		pointer[i] = INVALID;
 	}
 
-	//what is ptmap?
-	PtMap.insert< pair(<int, unsigned long int*> (pid, pointer));
+	AppArenaMap.insert< pair(<pid_t, unsigned long int*> (pid, pointer));
 
 	
 
@@ -107,7 +116,8 @@ void vm_create(pid_t pid){
 //son
 void vm_switch(pid_t pid){
 	currentPid = pid;
-	currAppArena = PtMap[pid];
+	currAppArena = AppArenaMap[pid];
+	page_table_base_register = PTMap[pid];
 }
 
 /***************************************************************************
@@ -128,9 +138,9 @@ int vm_fault(void *addr, bool write_flag);
 	Called when current process exits
  	Deallocate all resources held by the current process 
  	(page table, physical pages, disk blocks, etc.)
-  ***************************************************************************/
- //adela
- void vm_destroy();
+ ***************************************************************************/
+void vm_destroy();
+
 /*
 	i have no parameters so i believe that i will be dealing with 
 	instances of page_table_entry_t; and
@@ -145,7 +155,6 @@ int vm_fault(void *addr, bool write_flag);
 	use delete
 */
 
- 
 /***************************************************************************
  Function: vm_extend
  Inputs:   
