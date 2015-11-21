@@ -21,6 +21,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 /***************************************************************************/
 /* constants */
@@ -39,14 +40,24 @@ typedef struct {
 	node *next;
 } node;
 
+typedef struct {
+	unsigned long int* areanP;
+	unsigned long int lowestValid;
+} arenaEntry;
+
 /***************************************************************************/
 /* globals variables */
+static unsigned int availableDisks = 0;
 static pid_t currentPid = 0; 					//pid of currently running process
 static node* head;
-static unsigned long int *CurrAppArena;
-static unsigned int *PhysicalMemP;
-map <pid_t, unsigned long int*> AppArenaMap;	//arena map
+static node* tail;
+static node* curr;
+static unsigned long int *CurrAppArena;			//points to the current arena
+static unsigned int PhysicalMemSize;			//size of physical memory
+static bool* PhysMemP;
+map <pid_t, arenaEntry> AppArenaMap;			//arena map
 map <pid_t, page_table_t*> PTMap;				//page table map
+map <unsigned int, bool> PhysMemMap;
 
 /***************************************************************************/
 /* prototypdes */
@@ -75,10 +86,12 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 		exit(FAILURE);
 	}
 
+	availableDisks = disk_blocks;
+	PhysicalMemSize = memory_pages;
+
 	CurrAppArena = new unsigned long int [VM_ARENA_SIZE];
 
-	PhysicalMemP = new unsigned int [memory_pages];
-
+	PhysMemP = new unsigned bool [PhysicalMemSize];
 }
 
 /***************************************************************************
@@ -91,18 +104,20 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 //son
 void vm_create(pid_t pid){
 
-	pointer = new unsigned long int [VM_ARENA_SIZE];
+	unsigned long int *pointer = new (no throw) unsigned long int [VM_ARENA_SIZE];
 	if (pointer == NULL){
 		exit(1);
 	}
 
-	for (unsigned int i = 0; i < VM_ARENA_SIZE; i++)}{
+	for (unsigned long int i = 0; i < VM_ARENA_SIZE; i++)}{
 		pointer[i] = INVALID;
 	}
 
-	AppArenaMap.insert< pair(<pid_t, unsigned long int*> (pid, pointer));
+	arenaEntry toCreate;
+	toCreate.areanP = pointer;
+	toCreate.lowestValid = 0;
 
-	
+	AppArenaMap.insert< pair(<pid_t, arenaEntry> (pid, toCreate));
 
 }
 
@@ -116,7 +131,7 @@ void vm_create(pid_t pid){
 //son
 void vm_switch(pid_t pid){
 	currentPid = pid;
-	currAppArena = AppArenaMap[pid];
+	currAppArena = AppArenaMap[pid].areanP;
 	page_table_base_register = PTMap[pid];
 }
 
@@ -163,7 +178,56 @@ void vm_destroy();
 	
  ***************************************************************************/
 //together
-void * vm_extend();
+void * vm_extend(){
+
+	/* IDEA FOR THE CODE BELOW
+	
+	find the lowest using the variable associated with each arena (lowestValid)
+	and then add either 1 or 1fff (I don't know). 
+
+	map it to physical memory and update the page table (modifying ppage). 
+	By "update the page table", I mean create a node, stick it to the head,
+	and initialize values of modbit, refbit, read, write and ppage (mapping)
+	
+	go to physical memory and set the value to 0
+
+	*/
+
+	//check if having enough disk blocks to write if necessary
+	if (availableDisks == 0){
+		return NULL;
+	}
+
+	unsigned long int nextLowest = AppArenaMap[currentPid].lowestValid + 1;
+
+	for (unsigned long int i = nextLowest; i < nextLowest + VM_PAGESIZE; i++){
+		AppArenaMap[currentPid].arenaP[i] = 0;
+	}
+
+	node* nodeCreate;
+	nodeCreate->PageTableP = new (nothorw) page_table_t;
+	nodeCreate->modBit = 0;
+	nodeCreate->refBit = 0;
+	nodeCreate->next = NULL; 
+
+	tail->next = nodeCreate;
+	tail = nodeCreate;
+
+	page_table_entry_t tempEntry = nodeCreate->PageTableP->ptes[nextLowest/VM_PAGESIZE];
+	unsigned long int mapPPage = nextAvailablePhysMem();
+
+	if (mapPPage == INVALID) {
+		return NULL;
+	}
+
+	PhysMemP[mapPPage] = true;
+
+	tempEntry.ppage = mapPPage;
+	tempEntry.read_enable = 1;
+	tempEntry.write_enable = 1;
+
+	return nextLowest;
+}
 
 /***************************************************************************
  Function: vm_syslog
@@ -175,7 +239,14 @@ void * vm_extend();
 //together
 int vm_syslog(void *message, unsigned int len);
 
-
+unsigned long int nextAvailablePhysMem(){
+	for (unsigned long int i = 0; i < PhysicalMemSize; i++){
+		if (PhysMemP[i] == false){
+			return i;
+		}
+	}
+	return INVALID;
+}
 
 
 
