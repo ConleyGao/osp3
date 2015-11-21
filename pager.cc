@@ -60,10 +60,9 @@ map <pid_t, page_table_t*> PTMap;				//page table map
 map <unsigned int, bool> PhysMemMap;
 
 /***************************************************************************/
-/* prototypdes */
-unsigned long pageTranslate(unsigned long vpage){
-
-}
+/* prototypes */
+unsigned long newAvailablePhysMem();
+unsigned long pageTranslate(unsigned long vpage);
 
 
 /***************************************************************************
@@ -239,6 +238,18 @@ void * vm_extend(){
 //together
 int vm_syslog(void *message, unsigned int len);
 
+
+/***************************************************************************
+	UTILITY FUNCTIONS
+ ***************************************************************************/
+
+/***************************************************************************
+ Function: nextAvailablePhysMem
+ Inputs:   none
+ Returns:  nothing
+ Description:
+	
+ ***************************************************************************/
 unsigned long int nextAvailablePhysMem(){
 	for (unsigned long int i = 0; i < PhysicalMemSize; i++){
 		if (PhysMemP[i] == false){
@@ -247,6 +258,15 @@ unsigned long int nextAvailablePhysMem(){
 	}
 	return INVALID;
 }
+
+/***************************************************************************
+ Function: pageTranslate
+ Inputs:   address
+ Returns:  nothing
+ Description:
+	given an address can translate it into a page
+ ***************************************************************************/
+unsigned long pageTranslate(unsigned long vpage);
 
 
 
