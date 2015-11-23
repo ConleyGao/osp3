@@ -40,10 +40,10 @@ typedef struct {
 	node *next;
 } node;
 
-typedef struct {
-	unsigned long int* areanP;
-	unsigned long int lowestValid;
-} arenaEntry;
+// typedef struct {
+// 	unsigned long int* areanP;
+// 	unsigned long int lowestValid;
+// } arenaEntry;
 
 /***************************************************************************/
 /* globals variables */
@@ -52,12 +52,15 @@ static pid_t currentPid = 0; 					//pid of currently running process
 static node* head;
 static node* tail;
 static node* curr;
-static unsigned long int *CurrAppArena;			//points to the current arena
+//static unsigned long int *CurrAppArena;			//points to the current arena
 static unsigned int PhysicalMemSize;			//size of physical memory
 static bool* PhysMemP;
-map <pid_t, arenaEntry> AppArenaMap;			//arena map
+//map <pid_t, arenaEntry> AppArenaMap;			//arena map
+map <pid_t, unsigned long int> AppArenaMap;
 map <pid_t, page_table_t*> PTMap;				//page table map
 map <unsigned int, bool> PhysMemMap;
+
+static unsigned long int NextLowestValidVP;		//next lowest valid virtual address in the app's arena
 
 /***************************************************************************/
 /* prototypes */
@@ -96,7 +99,7 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 	availableDisks = disk_blocks;
 	PhysicalMemSize = memory_pages;
 
-	CurrAppArena = new unsigned long int [VM_ARENA_SIZE];
+	// CurrAppArena = new unsigned long int [VM_ARENA_SIZE];
 
 	PhysMemP = new unsigned bool [PhysicalMemSize];
 }
@@ -111,20 +114,19 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 //son
 void vm_create(pid_t pid){
 
-	unsigned long int *pointer = new (no throw) unsigned long int [VM_ARENA_SIZE];
+	//creating a page table for the process
+	page_table_t *pointer = new (nothrow) page_table_t;
 	if (pointer == NULL){
 		exit(1);
 	}
 
-	for (unsigned long int i = 0; i < VM_ARENA_SIZE; i++)}{
-		pointer[i] = INVALID;
-	}
+	//creating a new entry in PTMap
+	PTMap.insert(pair<pid_t, page_table_t*> (pid, pointer));
 
-	arenaEntry toCreate;
-	toCreate.areanP = pointer;
-	toCreate.lowestValid = 0;
+	//creating a new entry in AppArenaMap
+	AppArenaMap.insert(pair<pid_t, unsigned long int> (pid, INVALID));
 
-	AppArenaMap.insert< pair(<pid_t, arenaEntry> (pid, toCreate));
+	// AppArenaMap.insert< pair(<pid_t, arenaEntry> (pid, toCreate));
 
 }
 
@@ -135,10 +137,15 @@ void vm_create(pid_t pid){
  Description:
 	
  ***************************************************************************/
-//son
 void vm_switch(pid_t pid){
+
+	// update the currentPid to the pid of the switched-to process
 	currentPid = pid;
-	currAppArena = AppArenaMap[pid].areanP;
+
+	// points to arena pointer to the arena of the switched-to process
+	// currAppArena = AppArenaMap[pid].areanP;
+
+	//pointing the current pointer to the page table of switched-to process
 	page_table_base_register = PTMap[pid];
 }
 
@@ -205,14 +212,19 @@ void * vm_extend(){
 		return NULL;
 	}
 
-	unsigned long int nextLowest = AppArenaMap[currentPid].lowestValid + 1;
+	//getting the next lowest invalid address
+	unsigned long int nextLowest = AppArenaMap[currentPid] + 1;
 
-	for (unsigned long int i = nextLowest; i < nextLowest + VM_PAGESIZE; i++){
-		AppArenaMap[currentPid].arenaP[i] = 0;
-	}
+	//after that, update the next lowest invalid bit
+	AppArenaMap[currentPid] += VM_PAGESIZE;
 
+	// for (unsigned long int i = nextLowest; i < nextLowest + VM_PAGESIZE; i++){
+	// 	AppArenaMap[currentPid].arenaP[i] = 0;
+	// }
+
+	//create a node in the memory
 	node* nodeCreate;
-	nodeCreate->PageTableP = new (nothrow) page_table_t;
+	// nodeCreate->PageTableP = new (nothrow) page_table_t;
 	nodeCreate->modBit = 0;
 	nodeCreate->refBit = 0;
 	nodeCreate->next = NULL; 
@@ -220,18 +232,20 @@ void * vm_extend(){
 	tail->next = nodeCreate;
 	tail = nodeCreate;
 
-	page_table_entry_t tempEntry = nodeCreate->PageTableP->ptes[nextLowest/VM_PAGESIZE];
-	unsigned long int mapPPage = nextAvailablePhysMem();
+	//find the page table entry that corresponds to the lowest virtual address
+	//set the read bit and write bit to 0 --> unused page
+	//need pointer so we will change the value in the actual page table, not just the copy
+	page_table_entry_t* tempEntry = &(nodeCreate->PageTableP->ptes[nextLowest/VM_PAGESIZE - VM_ARENA_BASEPAGE]);
+	tempEntry->read_enable = 0;
+	tempEntry->write_enable = 0;
 
-	if (mapPPage == INVALID) {
-		return NULL;
-	}
+	// unsigned long int mapPPage = nextAvailablePhysMem();
+	// if (mapPPage == INVALID) {
+	// 	return NULL;
+	// }
+	// PhysMemP[mapPPage] = true;
+	// tempEntry.ppage = mapPPage;
 
-	PhysMemP[mapPPage] = true;
-
-	tempEntry.ppage = mapPPage;
-	tempEntry.read_enable = 1;
-	tempEntry.write_enable = 1;
 
 	return nextLowest;
 }
