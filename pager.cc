@@ -64,6 +64,14 @@ map <unsigned int, bool> PhysMemMap;
 unsigned long newAvailablePhysMem();
 unsigned long pageTranslate(unsigned long vpage);
 
+//arena  - just a set of nums, its arb
+	//dont need pointer?
+	//contains addresses
+	// get the page and do something with it 
+//tracking virtual pages, frames, processes
+
+
+
 
 /***************************************************************************
  Function: vm_init
@@ -204,7 +212,7 @@ void * vm_extend(){
 	}
 
 	node* nodeCreate;
-	nodeCreate->PageTableP = new (nothorw) page_table_t;
+	nodeCreate->PageTableP = new (nothrow) page_table_t;
 	nodeCreate->modBit = 0;
 	nodeCreate->refBit = 0;
 	nodeCreate->next = NULL; 
