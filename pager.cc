@@ -43,19 +43,9 @@ typedef struct node{
 	//node *next;
 } node;
 
-// typedef struct {
-// 	unsigned long int* areanP;
-// 	unsigned long int lowestValid;
-// } arenaEntry;
-
 /***************************************************************************/
 /* globals variables */
-static int availableDisks = 0;
 static pid_t currentPid = 0; 					//pid of currently running process
-queue<node*> clockQueue;
-//static node* head;
-//static node* teail;
-//static node* curr;
 static unsigned int PhysicalMemSize;			//size of physical memory
 static unsigned int DiskSize;
 static bool* PhysMemP;
@@ -64,6 +54,9 @@ map <pid_t, unsigned long int> AppArenaMap;		//the value is the highest valid vi
 map <pid_t, page_table_t*> PTMap;				//page table map
 map <unsigned int, node*> PhysMemMap;
 
+vector<unsigned int> FreePhysMemList; 		//store the physical pages (number) that are free
+
+queue<node*> clockQueue;
 
 /***************************************************************************/
 /* prototypes */
@@ -100,7 +93,6 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 	}
 
 	//saving to global variables
-	availableDisks = disk_blocks;
 	PhysicalMemSize = memory_pages;
 	DiskSize = disk_blocks;
 
@@ -114,6 +106,10 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 	DiskBlocksP = new (nothrow) bool [disk_blocks];
 	if (DiskBlocksP == NULL){
 		exit(FAILURE);
+	}
+
+	for (unsigned int i = 0; i < PhysicalMemSize; i++){
+		FreePhysMemList.push_back(i);
 	}
 
 	//initialize entry of disk block array to be invalid
@@ -184,7 +180,7 @@ int vm_fault(void *addr, bool write_flag){
 	int pageNumber = virtualAddr / VM_PAGESIZE;
 	int pageOffSet = virtualAddr % VM_PAGESIZE;
 	page_table_entry_t* tempEntry = &(page_table_base_register->ptes[pageNumber]);
-	unsigned long ppageNumber;
+	unsigned long ppageNumber = tempEntry->ppage / VM_PAGESIZE;
 	unsigned int nextPhysMem = 0;
 	//if the page is not in resident (i.e not in physical memory)
 	if (!resident(ppageNumber)){
@@ -309,7 +305,22 @@ int vm_fault(void *addr, bool write_flag){
  	Deallocate all resources held by the current process 
  	(page table, physical pages, disk blocks, etc.)
  ***************************************************************************/
-void vm_destroy();
+void vm_destroy(){
+	delete page_table_base_register;
+	AppArenaMap.erase(currentPid);
+	PTMap.erase(currentPid);
+	map<unsigned int, node*>::iterator it = PhysMemMap.begin();
+	while (it != PhysMemMap.end()){
+		node* toDelete = it->second;
+		if (toDelete->pid == currentPid){
+			PhysMemP[toDelete->pageTableEntryP->ppage / VM_PAGESIZE] = false;
+			PhysMemMap.erase(it++);
+		}
+		else {
+			it++;
+		}
+	}
+}
 
 /*
 	i have no parameters so i believe that i will be dealing with 
@@ -336,13 +347,13 @@ void vm_destroy();
 void * vm_extend(){
 
 	//check if having enough disk blocks to write if necessary
-	if (availableDisks == 0){
+	if (nextAvailableDiskBlock() == INVALID){
 		return NULL;
 	}
 
 	//getting the next lowest invalid address
 	unsigned long int nextLowest = AppArenaMap[currentPid] + 1;
-	if (nextLowest > ((uintptr_t)VM_ARENA_BASEADDR + VM_ARENA_SIZE)){
+	if (nextLowest > ((unsigned long)VM_ARENA_BASEADDR + VM_ARENA_SIZE)){
 		return NULL;
 	}
 
@@ -371,9 +382,23 @@ void * vm_extend(){
  Description:
 	
  ***************************************************************************/
-//together
-int vm_syslog(void *message, unsigned int len);
+int vm_syslog(void *message, unsigned int len){
 
+	if (len == 0 || len > (AppArenaMap[currentPid] - (unsigned long)VM_ARENA_BASEADDR)){
+		return FAILURE;
+	}
+
+	string s;
+
+	for (unsigned int i = 0; i < len; i++){
+		s += string(1,((char*)pm_physmem)[(page_table_base_register->ptes[((unsigned long)VM_ARENA_BASEADDR + (unsigned long)i) / VM_PAGESIZE - VM_ARENA_BASEPAGE]).ppage]);
+	}	
+
+	cout << "syslog \t\t\t" << s << endl;
+
+	return SUCCESS;
+
+}
 
 /***************************************************************************
 	UTILITY FUNCTIONS
