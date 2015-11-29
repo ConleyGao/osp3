@@ -30,7 +30,6 @@
 /*****************************************************************************/
 /* include files */
 #include <cstdlib>
-#include <stdint.h>
 #include <iostream>
 #include "vm_pager.h"
 #include <map>
@@ -52,7 +51,7 @@ using namespace std;
 /* structs */
 typedef struct {
 	page_table_entry_t* pageTableEntryP;	//points to the entry in the corresponding page table
-	unsigned long vAddr;			//virtual address
+	unsigned long vpage;			//virtual page number
 	pid_t pid; 					//which process this node belongs to
 	unsigned int modBit;
 	unsigned int refBit;
@@ -80,16 +79,17 @@ int nextAvailablePhysMem();
 int nextAvailableDiskBlock();
 bool resident(unsigned int pageNumber);
 bool onDisk(unsigned long addr);
-unsigned long pageTranslate(unsigned long vAddr);
+unsigned long pageTranslate(unsigned long vpage);
 
 /***************************************************************************
  Function: vm_init
- Inputs:   
+ Inputs:   number of pages in physical mem, number of disk blocks
+			available on disk	
  Returns:  nothing
- Description:
-	
+ Description: 
+ 		   sets up data structures needed to begin accepting subsequent
+ 		   	requests from processes
  ***************************************************************************/
-//venecia
 void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 
 	// head = new (nothrow) node;
@@ -117,15 +117,17 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 	if (PhysMemP == NULL){
 		exit(FAILURE);
 	}
+
 	for (unsigned int i = 0; i < PhysicalMemSize; i++){
 		PhysMemP[i] = false;
 	}
 
 	//initializing array of disk blocks
-	DiskBlocksP = new (nothrow) bool [disk_blocks];
+	DiskBlocksP = new (nothrow) bool [DiskSize];
 	if (DiskBlocksP == NULL){
 		exit(FAILURE);
 	}
+
 	for (unsigned int i = 0; i < DiskSize; i++){
 		DiskBlocksP[i] = false;
 	}
@@ -135,6 +137,8 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 		FreePhysMemList.push_back(i);
 	}
 
+	//-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->--> A: ur just adding the index to the list?
+
 	//initialize entry of disk block array to be invalid
 	// for (int i = 0; i < DiskSize; i++){
 	// 	DiskBlocksP[i] = INVALID;
@@ -143,18 +147,24 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 
 /***************************************************************************
  Function: vm_create
- Inputs:   
+ Inputs:   process id
  Returns:  nothing
  Description:
-	
+		   new application starts
+		   initialize data structures to handle process
+		   initial page tables should be empty, new process will 
+		    not be running until after it is switched to
  ***************************************************************************/
 void vm_create(pid_t pid){
 
 	//creating a page table for the process
+
+	//-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->--> A: better naming convention
 	page_table_t *pointer = new (nothrow) page_table_t;
 	if (pointer == NULL){
 		exit(1);
 	}
+	//-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->--> A: why exit 1?
 
 	//creating a new entry in PTMap
 	PTMap.insert(pair<pid_t, page_table_t*> (pid, pointer));
@@ -166,10 +176,12 @@ void vm_create(pid_t pid){
 
 /***************************************************************************
  Function: vm_switch
- Inputs:   
+ Inputs:   process id
  Returns:  nothing
  Description:
-	
+	       OS scheduler runs a new process
+	       allows pager to do bookkeeping to register the fact that a new 
+	        process is running
  ***************************************************************************/
 void vm_switch(pid_t pid){
 	cout << "switching to: " << pid << endl;
@@ -183,14 +195,20 @@ void vm_switch(pid_t pid){
 /***************************************************************************
  Function: vm_fault
  Inputs:   
- Returns:  nothing
+ Returns:  0 if successful handling fault, -1 if address to an invalid page
  Description:
-	
+	       response to read or write fault by application
+	       determine which accesss i the arena will generate faults by setting
+	       	read or write enable fields in page table
+	       determine which physical page is associated with a virtual page by 
+	       	setting the ppage field in page table
+	       physical page should be associated with at most one virtual page
+	       	in one process
  ***************************************************************************/
 int vm_fault(void *addr, bool write_flag){
 
-	unsigned long virtualAddr = (intptr_t) addr;
-	//cout << "virtual address: " << virtualAddr << endl;
+	unsigned long int virtualAddr = (long) addr;
+	// cout << "virtual address: " << hex << virtualAddr << endl;
 	// cout << "app arena current pid: " << hex << AppArenaMap[currentPid] << endl;
 	//faulting on an invalid address
 	if (virtualAddr > AppArenaMap[CurrentPid]) {
@@ -198,14 +216,14 @@ int vm_fault(void *addr, bool write_flag){
 	}
 
 	//calculating page number associated with virtual address
-	int pageNumber = (unsigned int) virtualAddr / VM_PAGESIZE;
+	int pageNumber = virtualAddr / VM_PAGESIZE;
 	cout << "virtual page number: " << pageNumber << endl;
 	int pageOffSet = virtualAddr % VM_PAGESIZE;
 	cout << "virtual page offset: " << pageOffSet << endl;
 	page_table_entry_t* tempEntry = &(page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE]);
-	cout << "what I am looking at " << tempEntry << endl;
-	cout << "ppage: " << tempEntry->ppage << endl;
+	cout << "ppage: " << hex << tempEntry->ppage << endl;
 	unsigned int ppageNumber = tempEntry->ppage;
+
 	int nextPhysMem = 0;
 	//if the page is not in resident (i.e not in physical memory)
 	if (!resident(ppageNumber)){
@@ -217,12 +235,15 @@ int vm_fault(void *addr, bool write_flag){
 		if (nextPhysMem == NO_VALUE){
 			node* curr = ClockQueue.front();
 			ClockQueue.pop();
+
 			while (true){
+
 				if (curr->refBit == 0){
-					int availPhysPage = curr->pageTableEntryP->ppage;
+					int availPhysPage = curr->pageTableEntryP->ppage / VM_PAGESIZE;
 					//if not last accessed, page out
 					//PhysMemMap.erase((curr->pageTableEntryP->ppage)/VM_PAGESIZE);
 					int nextBlock = nextAvailableDiskBlock();
+
 					if (nextBlock == NO_VALUE){
 						return FAILURE;
 					}
@@ -239,7 +260,7 @@ int vm_fault(void *addr, bool write_flag){
 					newNode->modBit = 0;
 					//refBit should be 1 because accessed
 					newNode->refBit = 1;
-					newNode->vAddr = virtualAddr;
+					newNode->vpage = virtualAddr;
 
 					//(!)this part I don't know if it's correct or not
 					if (write_flag == true){
@@ -250,6 +271,7 @@ int vm_fault(void *addr, bool write_flag){
 						tempEntry->write_enable = 0;
 						newNode->modBit = 0;
 					}
+
 					tempEntry->read_enable = 1;
 					//(!)that part ends here
 
@@ -268,9 +290,8 @@ int vm_fault(void *addr, bool write_flag){
 		//there is unused physical memory, then just associate the page with that memory
 		else {
 			cout << "there is extra memory" << endl;
-			//cout << "and here is what I am also looking at " << tempEntry << endl;
 			tempEntry->ppage = nextPhysMem;
-			cout << "assigned physical page: " << tempEntry->ppage << endl;
+			cout << "ppage: " << hex << tempEntry->ppage << endl;
 			//tempEntry->read_enable = 1;
 			if (write_flag == true){
 				tempEntry->write_enable = 1;
@@ -278,29 +299,23 @@ int vm_fault(void *addr, bool write_flag){
 			else {
 				tempEntry->read_enable = 1;
 			}
-
-			//cout << "what I need to look at " << &(page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE]) << endl;
-			cout << "node write " 
-				 << page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE].write_enable << endl;
-			cout << "node read " 
-				 << page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE].read_enable << endl;
-			cout << "node ppage " 
-			 	 << page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE].ppage << endl;
 			
 			//create a node in the memory
 			node* nodeCreate;
 			nodeCreate->modBit = 0;
+
 			if (write_flag == true){
 				nodeCreate->modBit = 1;
 			}
+
 			nodeCreate->refBit = 1;
-			nodeCreate->vAddr = virtualAddr;
+			nodeCreate->vpage = virtualAddr;
 			nodeCreate->pid = CurrentPid;
 			nodeCreate->pageTableEntryP = tempEntry;
 
 			//stick the node to the end of clock queue
 			ClockQueue.push(nodeCreate);
-			//cout << "size of clock queue: " << ClockQueue.size() << endl;
+			cout << "size of clock queue: " << ClockQueue.size() << endl;
 			// if (head->next == NULL){
 			// 	head->next = nodeCreate;
 			// 	nodeCreate->next = head;
@@ -310,15 +325,6 @@ int vm_fault(void *addr, bool write_flag){
 			// 	tail->next = nodeCreate;
 			// 	tail = nodeCreate;
 			// 	nodeCreate->next = head;
-			// }
-
-			//zero-filling for association
-			for (unsigned int i = nextPhysMem * VM_PAGESIZE; i < VM_PAGESIZE; i++){
-				((char*)pm_physmem)[i] = 0;
-			}
-
-			// for (unsigned int i = nextPhysMem * VM_PAGESIZE; i < VM_PAGESIZE; i++){
-			// 	cout << "phys at " << i << ": " << ((char*)pm_physmem)[i] << endl;
 			// }
 
 			PhysMemP[nextPhysMem] = true;
@@ -337,29 +343,32 @@ int vm_fault(void *addr, bool write_flag){
 		else {
 			tempEntry->read_enable = 1;
 		}
+
 		tempNode->refBit = 1;
 	}
 
 	return SUCCESS;
-
 }
 
 /***************************************************************************
  Function: vm_destroy
- Inputs:   
+ Inputs:   none
  Returns:  nothing
  Description:
-	Called when current process exits
- 	Deallocate all resources held by the current process 
- 	(page table, physical pages, disk blocks, etc.)
+		   current process exits
+ 		   deallocate all resources held by the current process 
+ 	        (page table, physical pages, disk blocks, etc.)
+ 	        physical pages realeased eshould be put back on the free list
  ***************************************************************************/
 void vm_destroy(){
 	delete page_table_base_register;
 	AppArenaMap.erase(CurrentPid);
 	PTMap.erase(CurrentPid);
 	map<unsigned int, node*>::iterator it = PhysMemMap.begin();
+
 	while (it != PhysMemMap.end()){
 		node* toDelete = it->second;
+
 		if (toDelete->pid == CurrentPid){
 			PhysMemP[toDelete->pageTableEntryP->ppage / VM_PAGESIZE] = false;
 			PhysMemMap.erase(it++);
@@ -370,29 +379,16 @@ void vm_destroy(){
 	}
 }
 
-/*
-	i have no parameters so i believe that i will be dealing with 
-	instances of page_table_entry_t; and
-	typedef struct {
-    	page_table_entry_t ptes[VM_ARENA_SIZE/VM_PAGESIZE];
-	} page_table_t;
-
-	also other structs that we create would need to be deallocated
-
-	very dependent
-
-	use delete
-*/
-
 /***************************************************************************
  Function: vm_extend
- Inputs:   
- Returns:  nothing
+ Inputs:   none
+ Returns:  lowest-numbered byte of the new valid virtual page, o/w is NULL 
  Description:
-	
+		   process make another virtual page in its arena valid
+		   ensure enough available disk blocks to hold all valid virtual pages
+		   each byte of a newly extended virtual page initialized with value 0
  ***************************************************************************/
-//together
-void * vm_extend(){
+void *vm_extend(){
 	//check if having enough disk blocks to write if necessary
 	if (nextAvailableDiskBlock() == NO_VALUE){
 		return NULL;
@@ -430,46 +426,35 @@ void * vm_extend(){
 	tempEntry->write_enable = 0;
 	tempEntry->ppage = INVALID;
 
-	return (void*)nextLowest;
+	return (void *)nextLowest;
 }
 
 /***************************************************************************
  Function: vm_syslog
- Inputs:   
- Returns:  nothing
+ Inputs:   pointer to an array of bytes in virtual address space and 
+ 			length of the array
+ Returns:  -1 if message no on a valid arena page or length is 0, o/w is 0
  Description:
-	
+		   check message is in valid pages of arena
+		   copy array into string in pager's address space and print it
  ***************************************************************************/
 int vm_syslog(void *message, unsigned int len){
 
-	unsigned long currAddr = (intptr_t) message;
-
-	if (currAddr + len > AppArenaMap[CurrentPid] || len == 0){
+	if (len == 0 || len > (AppArenaMap[CurrentPid] - (unsigned long)VM_ARENA_BASEADDR)){
 		return FAILURE;
 	}
 
 	string s;
-	int vpageNumber = 0;
-	int pageOffSet = 0;
-	int pAddr = 0;
 
-	for (unsigned long i = 0; i < len; i++){
-		//translating from virtual address to physical address
-		vpageNumber = currAddr / VM_PAGESIZE;
-		pageOffSet = currAddr % VM_PAGESIZE;
-		pAddr = page_table_base_register->ptes[vpageNumber - VM_ARENA_BASEPAGE].ppage * VM_PAGESIZE;
-
-		//constructing the string
-		s += string(1,((char*)pm_physmem)[pAddr + pageOffSet]);
-
-		//going to the next bytes (address)
-		++currAddr;
+	for (unsigned int i = 0; i < len; i++){
+		s += string(1,((char*)pm_physmem)[(page_table_base_register->ptes[
+			((unsigned long)VM_ARENA_BASEADDR + (unsigned long)i) / VM_PAGESIZE 
+			- VM_ARENA_BASEPAGE]).ppage]);
 	}	
 
 	cout << "syslog \t\t\t" << s << endl;
 
 	return SUCCESS;
-
 }
 
 /***************************************************************************
@@ -489,6 +474,7 @@ int nextAvailablePhysMem(){
 			return i;
 		}
 	}
+	
 	return NO_VALUE;
 }
 
@@ -505,6 +491,7 @@ int nextAvailableDiskBlock(){
 			return i;
 		}
 	}
+
 	return NO_VALUE;
 }
 
@@ -516,8 +503,13 @@ int nextAvailableDiskBlock(){
 	
  ***************************************************************************/
 bool resident(unsigned int ppageNumber){
-	if (PhysMemMap[ppageNumber] != NULL){
-		return true;
+	if (PhysMemMap.count(ppageNumber) > 0){
+		if (PhysMemMap[ppageNumber] != NULL){
+			return true;
+		}
+		else {
+			return false;
+		}
 	}
 	else {
 		return false;
@@ -547,7 +539,7 @@ bool onDisk(unsigned long address){
  Description:
 	given an address can translate it into a page
  ***************************************************************************/
-unsigned long pageTranslate(unsigned long vAddr);
+unsigned long pageTranslate(unsigned long vpage);
 
 
 
