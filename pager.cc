@@ -7,6 +7,20 @@
 
  Notes: 
  Run this program with argument on the command line
+
+ Running instructions:
+
+	Compile the pager first with the command line: 
+
+		g++ -Wall -o pager pager.cc libvm_pager.a -ldl
+
+	Then open a new terminal window, and compile with the command line: 
+
+	 	g++ -Wall -o test test.<memorypages>.cc libvm_app.a -ldl 
+
+	Then on that same terminal window (of test case), run ./test
+
+	See results and happy debugging...
  	
  Data Structures:
 
@@ -29,6 +43,7 @@
 static const int FAILURE = -1;
 static const int SUCCESS = 0;
 static const unsigned long int INVALID = 0x00000000;
+static const int NO_VALUE = -1;
 
 using namespace std;
 
@@ -101,13 +116,20 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 	if (PhysMemP == NULL){
 		exit(FAILURE);
 	}
+	for (unsigned int i = 0; i < PhysicalMemSize; i++){
+		PhysMemP[i] = false;
+	}
 
 	//initializing array of disk blocks
 	DiskBlocksP = new (nothrow) bool [disk_blocks];
 	if (DiskBlocksP == NULL){
 		exit(FAILURE);
 	}
+	for (unsigned int i = 0; i < DiskSize; i++){
+		DiskBlocksP[i] = false;
+	}
 
+	//initializing free list (unused)
 	for (unsigned int i = 0; i < PhysicalMemSize; i++){
 		FreePhysMemList.push_back(i);
 	}
@@ -149,12 +171,9 @@ void vm_create(pid_t pid){
 	
  ***************************************************************************/
 void vm_switch(pid_t pid){
-
+	cout << "switching to: " << pid << endl;
 	// update the currentPid to the pid of the switched-to process
 	currentPid = pid;
-
-	// points to arena pointer to the arena of the switched-to process
-	// currAppArena = AppArenaMap[pid].areanP;
 
 	//pointing the current pointer to the page table of switched-to process
 	page_table_base_register = PTMap[currentPid];
@@ -170,7 +189,8 @@ void vm_switch(pid_t pid){
 int vm_fault(void *addr, bool write_flag){
 
 	unsigned long int virtualAddr = (long) addr;
-
+	// cout << "virtual address: " << hex << virtualAddr << endl;
+	// cout << "app arena current pid: " << hex << AppArenaMap[currentPid] << endl;
 	//faulting on an invalid address
 	if (virtualAddr > AppArenaMap[currentPid]) {
 		return FAILURE; //-1
@@ -178,17 +198,21 @@ int vm_fault(void *addr, bool write_flag){
 
 	//calculating page number associated with virtual address
 	int pageNumber = virtualAddr / VM_PAGESIZE;
+	cout << "virtual page number: " << pageNumber << endl;
 	int pageOffSet = virtualAddr % VM_PAGESIZE;
-	page_table_entry_t* tempEntry = &(page_table_base_register->ptes[pageNumber]);
-	unsigned long ppageNumber = tempEntry->ppage / VM_PAGESIZE;
-	unsigned int nextPhysMem = 0;
+	cout << "virtual page offset: " << pageOffSet << endl;
+	page_table_entry_t* tempEntry = &(page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE]);
+	cout << "ppage: " << hex << tempEntry->ppage << endl;
+	unsigned int ppageNumber = tempEntry->ppage;
+	int nextPhysMem = 0;
 	//if the page is not in resident (i.e not in physical memory)
 	if (!resident(ppageNumber)){
+		cout << "not resident" << endl;
 		nextPhysMem = nextAvailablePhysMem();
-
+		cout << "next availabe physical memory is: " << nextPhysMem << endl;
 		//there is no free physical memory, so have to run second-chance clock 
 		//algorithm to evict active pages
-		if (nextPhysMem == INVALID){
+		if (nextPhysMem == NO_VALUE){
 			node* curr = clockQueue.front();
 			clockQueue.pop();
 			while (true){
@@ -197,7 +221,7 @@ int vm_fault(void *addr, bool write_flag){
 					//if not last accessed, page out
 					//PhysMemMap.erase((curr->pageTableEntryP->ppage)/VM_PAGESIZE);
 					int nextBlock = nextAvailableDiskBlock();
-					if (nextBlock == INVALID){
+					if (nextBlock == NO_VALUE){
 						return FAILURE;
 					}
 
@@ -230,6 +254,8 @@ int vm_fault(void *addr, bool write_flag){
 					//updating queue and physical memory map
 					clockQueue.push(newNode);
 					PhysMemMap[availPhysPage] = newNode;
+
+					break;
 				}
 				else {
 					curr->refBit = 0;
@@ -239,7 +265,9 @@ int vm_fault(void *addr, bool write_flag){
 		}
 		//there is unused physical memory, then just associate the page with that memory
 		else {
-			tempEntry->ppage = nextPhysMem * VM_PAGESIZE + pageOffSet;
+			cout << "there is extra memory" << endl;
+			tempEntry->ppage = nextPhysMem;
+			cout << "ppage: " << hex << tempEntry->ppage << endl;
 			//tempEntry->read_enable = 1;
 			if (write_flag == true){
 				tempEntry->write_enable = 1;
@@ -261,6 +289,7 @@ int vm_fault(void *addr, bool write_flag){
 
 			//stick the node to the end of clock queue
 			clockQueue.push(nodeCreate);
+			cout << "size of clock queue: " << clockQueue.size() << endl;
 			// if (head->next == NULL){
 			// 	head->next = nodeCreate;
 			// 	nodeCreate->next = head;
@@ -271,7 +300,6 @@ int vm_fault(void *addr, bool write_flag){
 			// 	tail = nodeCreate;
 			// 	nodeCreate->next = head;
 			// }
-
 
 			PhysMemP[nextPhysMem] = true;
 			PhysMemMap.insert(pair<unsigned int, node*>(nextPhysMem, nodeCreate));
@@ -345,23 +373,33 @@ void vm_destroy(){
  ***************************************************************************/
 //together
 void * vm_extend(){
-
 	//check if having enough disk blocks to write if necessary
-	if (nextAvailableDiskBlock() == INVALID){
+	if (nextAvailableDiskBlock() == NO_VALUE){
 		return NULL;
 	}
 
-	//getting the next lowest invalid address
-	unsigned long int nextLowest = AppArenaMap[currentPid] + 1;
-	if (nextLowest > ((unsigned long)VM_ARENA_BASEADDR + VM_ARENA_SIZE)){
+	unsigned long int nextLowest = AppArenaMap[currentPid];
+
+	//no valid address, starting at base
+	if (nextLowest == INVALID){
+		nextLowest = (unsigned long)VM_ARENA_BASEADDR;
+	}
+	//not enough arena size
+	else if (nextLowest == (unsigned long)VM_ARENA_BASEADDR + VM_ARENA_SIZE){ 
 		return NULL;
 	}
+	// //next lowest valid virtual address
+	// else {
+	// 	nextLowest++;
+	// }
+
+	cout << "returning " << hex << nextLowest << endl;
 
 	//getting the page that corresponds to the valid address
 	unsigned int validPageNum = nextLowest / VM_PAGESIZE - VM_ARENA_BASEPAGE;
 
 	//after that, update the next highest valid bit
-	AppArenaMap[currentPid] += VM_PAGESIZE;
+	AppArenaMap[currentPid] = nextLowest + VM_PAGESIZE;
 
 	//initializing the entry in page table
 	//find the page table entry that corresponds to the lowest virtual address
@@ -417,7 +455,7 @@ int nextAvailablePhysMem(){
 			return i;
 		}
 	}
-	return INVALID;
+	return NO_VALUE;
 }
 
 /***************************************************************************
@@ -433,7 +471,7 @@ int nextAvailableDiskBlock(){
 			return i;
 		}
 	}
-	return INVALID;
+	return NO_VALUE;
 }
 
 /***************************************************************************
