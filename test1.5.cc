@@ -5,25 +5,23 @@
 using namespace std;
 
 int main(){
-	char *p;
-	int q; 
-	int* a;   
-	p = (char *) vm_extend();
-	q = (intptr_t) vm_extend();
-	a = (int *) vm_extend();
-	cout << "test1: get q = " << hex << q << endl;
-	cout << "test1: get a = " << hex << a << endl;
-	//cout << "test1: get p = " << hex << p << endl;
+	//char *p;
+	// int q; 
+	char* a;   
+	//p = (char *) vm_extend();
+	// q = (intptr_t) vm_extend();
+	a = (char *) vm_extend();
+	// // cout << "test1: get q = " << hex << q << endl;
+	//cout << "test1: get a = " << hex << a << endl;
+	// cout << "test1: get p = " << p << endl;
 	
-	//a[0] = 1;
-	a[1] = 2;
+	for (int i = 0; i < 100; i++){
+		a[i] = 'a';
+	}
 
-	vm_syslog(a,2);
+	vm_yield();
 
-	// p[0] = 'h';
-	// p[1] = 'e';
-	// p[2] = 'l';
-	// p[3] = 'l';
-	// p[4] = 'o';
-	// vm_syslog(p, 5);
+	vm_syslog(a,100);
+
+	cout << "Adela is crazy" << endl;
 }

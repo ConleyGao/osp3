@@ -210,7 +210,7 @@ int vm_fault(void *addr, bool write_flag){
 	}
 
 	//calculating page number associated with virtual address
-	int pageNumber = (unsigned int) virtualAddr / VM_PAGESIZE;
+	int pageNumber = virtualAddr / VM_PAGESIZE;
 	cout << "virtual page number: " << pageNumber << endl;
 	int pageOffSet = virtualAddr % VM_PAGESIZE;
 	cout << "virtual page offset: " << pageOffSet << endl;
@@ -228,6 +228,8 @@ int vm_fault(void *addr, bool write_flag){
 		//there is no free physical memory, so have to run second-chance clock 
 		//algorithm to evict active pages
 		if (nextPhysMem == NO_VALUE){
+			// node* curr = new (nothrow) node;
+			// curr = ClockQueue.front();
 			node* curr = ClockQueue.front();
 			ClockQueue.pop();
 			while (true){
@@ -247,7 +249,7 @@ int vm_fault(void *addr, bool write_flag){
 					}
 
 					//creating a new entry for the queue for replacement
-					node* newNode;
+					node* newNode = new (nothrow) node;
 					newNode->pageTableEntryP = tempEntry;
 					newNode->modBit = 0;
 					//refBit should be 1 because accessed
@@ -280,6 +282,7 @@ int vm_fault(void *addr, bool write_flag){
 		}
 		//there is unused physical memory, then just associate the page with that memory
 		else {
+			nextPhysMem = (unsigned int) nextPhysMem;
 			cout << "there is extra memory" << endl;
 			//cout << "and here is what I am also looking at " << tempEntry << endl;
 			tempEntry->ppage = nextPhysMem;
@@ -301,7 +304,7 @@ int vm_fault(void *addr, bool write_flag){
 			 	 << page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE].ppage << endl;
 			
 			//create a node in the memory
-			node* nodeCreate;
+			node* nodeCreate = new (nothrow) node;
 			nodeCreate->modBit = 0;
 			if (write_flag == true){
 				nodeCreate->modBit = 1;
@@ -316,7 +319,7 @@ int vm_fault(void *addr, bool write_flag){
 			//cout << "size of clock queue: " << ClockQueue.size() << endl;
 
 			//zero-filling for association (confused)
-			for (unsigned int i = nextPhysMem * VM_PAGESIZE; i < VM_PAGESIZE; i++){
+			for (unsigned int i = nextPhysMem; i < (unsigned int)nextPhysMem + VM_PAGESIZE; i++){
 				((char*)pm_physmem)[i] = 0;
 			}
 
@@ -325,7 +328,10 @@ int vm_fault(void *addr, bool write_flag){
 			// }
 
 			PhysMemP[nextPhysMem] = true;
-			PhysMemMap.insert(pair<unsigned int, node*>(nextPhysMem, nodeCreate));
+			cout << "inserting to map: " << nodeCreate << " with key " << nextPhysMem << endl;
+			//pair< map<unsigned int, node*>::iterator,bool> ret;
+			PhysMemMap[nextPhysMem] = nodeCreate;
+			cout << PhysMemMap[nextPhysMem] << endl;
 		}
 	}
 	//the page is resident, update the bits, change the protections
@@ -358,20 +364,41 @@ int vm_fault(void *addr, bool write_flag){
  	        physical pages realeased eshould be put back on the free list
  ***************************************************************************/
 void vm_destroy(){
-	delete page_table_base_register;
+	cout << "destroying pid: " << CurrentPid << endl;
+	//delete page_table_base_register;
+	page_table_base_register = NULL;
 	AppArenaMap.erase(CurrentPid);
 	PTMap.erase(CurrentPid);
 	map<unsigned int, node*>::iterator it = PhysMemMap.begin();
-	while (it != PhysMemMap.end()){
-		node* toDelete = it->second;
+	cout << "testing: " << it->first << endl;
+	// while (it != PhysMemMap.end()){
+	// 	node* toDelete = it->second;
+	// 	if (toDelete->pid == CurrentPid){
+	// 		PhysMemP[toDelete->pageTableEntryP->ppage / VM_PAGESIZE] = false;
+	// 		PhysMemMap.erase(it++);
+	// 	}
+	// 	else {
+	// 		++it;
+	// 	}
+	// }
+
+	node* toDelete = new (nothrow) node;
+
+	for (it = PhysMemMap.begin(); it != PhysMemMap.end(); ){
+		toDelete = it->second;
+		cout << "here? " << it->second << endl;
 		if (toDelete->pid == CurrentPid){
-			PhysMemP[toDelete->pageTableEntryP->ppage / VM_PAGESIZE] = false;
+			cout << "here2?" << endl;
+			PhysMemP[toDelete->pageTableEntryP->ppage] = false;
+			cout << "here3?" << endl;
 			PhysMemMap.erase(it++);
+			cout << "here4?" << endl;
 		}
 		else {
-			it++;
+			++it;
 		}
 	}
+	cout << "finished destroying " << CurrentPid << endl;
 }
 
 /***************************************************************************
@@ -404,7 +431,7 @@ void * vm_extend(){
 	// 	nextLowest++;
 	// }
 
-	cout << "returning " << hex << nextLowest << endl;
+	//cout << "returning " << hex << nextLowest << endl;
 
 	//getting the page that corresponds to the valid address
 	unsigned int validPageNum = nextLowest / VM_PAGESIZE - VM_ARENA_BASEPAGE;
