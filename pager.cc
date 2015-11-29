@@ -83,12 +83,13 @@ unsigned long pageTranslate(unsigned long vpage);
 
 /***************************************************************************
  Function: vm_init
- Inputs:   
+ Inputs:   number of pages in physical mem, number of disk blocks
+			available on disk	
  Returns:  nothing
- Description:
-	
+ Description: 
+ 		   sets up data structures needed to begin accepting subsequent
+ 		   	requests from processes
  ***************************************************************************/
-//venecia
 void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 
 	// head = new (nothrow) node;
@@ -116,15 +117,17 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 	if (PhysMemP == NULL){
 		exit(FAILURE);
 	}
+
 	for (unsigned int i = 0; i < PhysicalMemSize; i++){
 		PhysMemP[i] = false;
 	}
 
 	//initializing array of disk blocks
-	DiskBlocksP = new (nothrow) bool [disk_blocks];
+	DiskBlocksP = new (nothrow) bool [DiskSize];
 	if (DiskBlocksP == NULL){
 		exit(FAILURE);
 	}
+
 	for (unsigned int i = 0; i < DiskSize; i++){
 		DiskBlocksP[i] = false;
 	}
@@ -134,6 +137,8 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 		FreePhysMemList.push_back(i);
 	}
 
+	//-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->--> A: ur just adding the index to the list?
+
 	//initialize entry of disk block array to be invalid
 	// for (int i = 0; i < DiskSize; i++){
 	// 	DiskBlocksP[i] = INVALID;
@@ -142,18 +147,24 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 
 /***************************************************************************
  Function: vm_create
- Inputs:   
+ Inputs:   process id
  Returns:  nothing
  Description:
-	
+		   new application starts
+		   initialize data structures to handle process
+		   initial page tables should be empty, new process will 
+		    not be running until after it is switched to
  ***************************************************************************/
 void vm_create(pid_t pid){
 
 	//creating a page table for the process
+
+	//-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->--> A: better naming convention
 	page_table_t *pointer = new (nothrow) page_table_t;
 	if (pointer == NULL){
 		exit(1);
 	}
+	//-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->--> A: why exit 1?
 
 	//creating a new entry in PTMap
 	PTMap.insert(pair<pid_t, page_table_t*> (pid, pointer));
@@ -165,10 +176,12 @@ void vm_create(pid_t pid){
 
 /***************************************************************************
  Function: vm_switch
- Inputs:   
+ Inputs:   process id
  Returns:  nothing
  Description:
-	
+	       OS scheduler runs a new process
+	       allows pager to do bookkeeping to register the fact that a new 
+	        process is running
  ***************************************************************************/
 void vm_switch(pid_t pid){
 	cout << "switching to: " << pid << endl;
@@ -184,7 +197,8 @@ void vm_switch(pid_t pid){
  Inputs:   
  Returns:  nothing
  Description:
-	
+	       response to read or write fault by application
+	       determine which accesss
  ***************************************************************************/
 int vm_fault(void *addr, bool write_flag){
 
