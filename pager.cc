@@ -195,10 +195,15 @@ void vm_switch(pid_t pid){
 /***************************************************************************
  Function: vm_fault
  Inputs:   
- Returns:  nothing
+ Returns:  0 if successful handling fault, -1 if address to an invalid page
  Description:
 	       response to read or write fault by application
-	       determine which accesss
+	       determine which accesss i the arena will generate faults by setting
+	       	read or write enable fields in page table
+	       determine which physical page is associated with a virtual page by 
+	       	setting the ppage field in page table
+	       physical page should be associated with at most one virtual page
+	       	in one process
  ***************************************************************************/
 int vm_fault(void *addr, bool write_flag){
 
@@ -218,6 +223,7 @@ int vm_fault(void *addr, bool write_flag){
 	page_table_entry_t* tempEntry = &(page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE]);
 	cout << "ppage: " << hex << tempEntry->ppage << endl;
 	unsigned int ppageNumber = tempEntry->ppage;
+
 	int nextPhysMem = 0;
 	//if the page is not in resident (i.e not in physical memory)
 	if (!resident(ppageNumber)){
@@ -229,12 +235,15 @@ int vm_fault(void *addr, bool write_flag){
 		if (nextPhysMem == NO_VALUE){
 			node* curr = ClockQueue.front();
 			ClockQueue.pop();
+
 			while (true){
+
 				if (curr->refBit == 0){
 					int availPhysPage = curr->pageTableEntryP->ppage / VM_PAGESIZE;
 					//if not last accessed, page out
 					//PhysMemMap.erase((curr->pageTableEntryP->ppage)/VM_PAGESIZE);
 					int nextBlock = nextAvailableDiskBlock();
+
 					if (nextBlock == NO_VALUE){
 						return FAILURE;
 					}
@@ -262,6 +271,7 @@ int vm_fault(void *addr, bool write_flag){
 						tempEntry->write_enable = 0;
 						newNode->modBit = 0;
 					}
+
 					tempEntry->read_enable = 1;
 					//(!)that part ends here
 
@@ -293,9 +303,11 @@ int vm_fault(void *addr, bool write_flag){
 			//create a node in the memory
 			node* nodeCreate;
 			nodeCreate->modBit = 0;
+
 			if (write_flag == true){
 				nodeCreate->modBit = 1;
 			}
+
 			nodeCreate->refBit = 1;
 			nodeCreate->vpage = virtualAddr;
 			nodeCreate->pid = CurrentPid;
@@ -331,29 +343,32 @@ int vm_fault(void *addr, bool write_flag){
 		else {
 			tempEntry->read_enable = 1;
 		}
+
 		tempNode->refBit = 1;
 	}
 
 	return SUCCESS;
-
 }
 
 /***************************************************************************
  Function: vm_destroy
- Inputs:   
+ Inputs:   none
  Returns:  nothing
  Description:
-	Called when current process exits
- 	Deallocate all resources held by the current process 
- 	(page table, physical pages, disk blocks, etc.)
+		   current process exits
+ 		   deallocate all resources held by the current process 
+ 	        (page table, physical pages, disk blocks, etc.)
+ 	        physical pages realeased eshould be put back on the free list
  ***************************************************************************/
 void vm_destroy(){
 	delete page_table_base_register;
 	AppArenaMap.erase(CurrentPid);
 	PTMap.erase(CurrentPid);
 	map<unsigned int, node*>::iterator it = PhysMemMap.begin();
+
 	while (it != PhysMemMap.end()){
 		node* toDelete = it->second;
+
 		if (toDelete->pid == CurrentPid){
 			PhysMemP[toDelete->pageTableEntryP->ppage / VM_PAGESIZE] = false;
 			PhysMemMap.erase(it++);
@@ -364,29 +379,16 @@ void vm_destroy(){
 	}
 }
 
-/*
-	i have no parameters so i believe that i will be dealing with 
-	instances of page_table_entry_t; and
-	typedef struct {
-    	page_table_entry_t ptes[VM_ARENA_SIZE/VM_PAGESIZE];
-	} page_table_t;
-
-	also other structs that we create would need to be deallocated
-
-	very dependent
-
-	use delete
-*/
-
 /***************************************************************************
  Function: vm_extend
- Inputs:   
- Returns:  nothing
+ Inputs:   none
+ Returns:  lowest-numbered byte of the new valid virtual page, o/w is NULL 
  Description:
-	
+		   process make another virtual page in its arena valid
+		   ensure enough available disk blocks to hold all valid virtual pages
+		   each byte of a newly extended virtual page initialized with value 0
  ***************************************************************************/
-//together
-void * vm_extend(){
+void *vm_extend(){
 	//check if having enough disk blocks to write if necessary
 	if (nextAvailableDiskBlock() == NO_VALUE){
 		return NULL;
@@ -424,15 +426,17 @@ void * vm_extend(){
 	tempEntry->write_enable = 0;
 	tempEntry->ppage = INVALID;
 
-	return (void*)nextLowest;
+	return (void *)nextLowest;
 }
 
 /***************************************************************************
  Function: vm_syslog
- Inputs:   
- Returns:  nothing
+ Inputs:   pointer to an array of bytes in virtual address space and 
+ 			length of the array
+ Returns:  -1 if message no on a valid arena page or length is 0, o/w is 0
  Description:
-	
+		   check message is in valid pages of arena
+		   copy array into string in pager's address space and print it
  ***************************************************************************/
 int vm_syslog(void *message, unsigned int len){
 
@@ -443,13 +447,14 @@ int vm_syslog(void *message, unsigned int len){
 	string s;
 
 	for (unsigned int i = 0; i < len; i++){
-		s += string(1,((char*)pm_physmem)[(page_table_base_register->ptes[((unsigned long)VM_ARENA_BASEADDR + (unsigned long)i) / VM_PAGESIZE - VM_ARENA_BASEPAGE]).ppage]);
+		s += string(1,((char*)pm_physmem)[(page_table_base_register->ptes[
+			((unsigned long)VM_ARENA_BASEADDR + (unsigned long)i) / VM_PAGESIZE 
+			- VM_ARENA_BASEPAGE]).ppage]);
 	}	
 
 	cout << "syslog \t\t\t" << s << endl;
 
 	return SUCCESS;
-
 }
 
 /***************************************************************************
@@ -469,6 +474,7 @@ int nextAvailablePhysMem(){
 			return i;
 		}
 	}
+	
 	return NO_VALUE;
 }
 
@@ -485,6 +491,7 @@ int nextAvailableDiskBlock(){
 			return i;
 		}
 	}
+
 	return NO_VALUE;
 }
 
