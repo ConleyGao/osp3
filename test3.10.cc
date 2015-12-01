@@ -26,6 +26,7 @@ int main(){
 	d[3] = 'l';
 	e[4] = 'o';
 	f[5] = '!';
+	//a[0] = 'H';
 	vm_syslog(b, 6);
 
 	cout << "Adela is awesome" << endl;

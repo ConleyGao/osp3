@@ -52,8 +52,9 @@ using namespace std;
 /* structs */
 typedef struct {
 	page_table_entry_t* pageTableEntryP;	//points to the entry in the corresponding page table
-	unsigned long vAddr;			//virtual address
-	pid_t pid; 					//which process this node belongs to
+	unsigned long vPage;					//virtual page
+	pid_t pid; 								//which process this node belongs to
+	int diskBlock;
 	unsigned int modBit;
 	unsigned int refBit;
 	//node *next;
@@ -80,7 +81,7 @@ int nextAvailablePhysMem();
 int nextAvailableDiskBlock();
 bool resident(unsigned int pageNumber);
 bool onDisk(unsigned long addr);
-unsigned long pageTranslate(unsigned long vAddr);
+unsigned long pageTranslate(unsigned long vPage);
 
 /***************************************************************************
  Function: vm_init
@@ -254,19 +255,26 @@ int vm_fault(void *addr, bool write_flag){
 
 					*/
 
+					node* newNode = new (nothrow) node;
+
 					//write to swap space if page has been modified
 					if (curr->modBit == 1){
 						disk_write(nextBlock, curr->pageTableEntryP->ppage);
+						newNode->diskBlock = nextBlock;
 						DiskBlocksP[nextBlock] = true;
+					}
+					else {
+						newNode->diskBlock = NO_VALUE;
 					}
 
 					//creating a new entry for the queue for replacement
-					node* newNode = new (nothrow) node;
+					
 					newNode->pageTableEntryP = tempEntry;
 					newNode->modBit = 0;
 					//refBit should be 1 because accessed
 					newNode->refBit = 1;
-					newNode->vAddr = virtualAddr;
+					newNode->pid = CurrentPid;
+					newNode->vPage = pageNumber;
 
 					//(!)this part I don't know if it's correct or not
 					if (write_flag == true){
@@ -323,8 +331,9 @@ int vm_fault(void *addr, bool write_flag){
 				nodeCreate->modBit = 1;
 			}
 			nodeCreate->refBit = 1;
-			nodeCreate->vAddr = virtualAddr;
+			nodeCreate->vPage = pageNumber;
 			nodeCreate->pid = CurrentPid;
+			nodeCreate->diskBlock = NO_VALUE;
 			nodeCreate->pageTableEntryP = tempEntry;
 
 			//stick the node to the end of clock queue
@@ -333,7 +342,7 @@ int vm_fault(void *addr, bool write_flag){
 
 			//zero-filling for association (confused)
 			for (unsigned int i = nextPhysMem; i < (unsigned int)nextPhysMem + VM_PAGESIZE; i++){
-				((char*)pm_physmem)[i] = 0;
+				((char*)pm_physmem)[i] = '\0';
 			}
 
 			// for (unsigned int i = nextPhysMem * VM_PAGESIZE; i < VM_PAGESIZE; i++){
@@ -384,13 +393,16 @@ void vm_destroy(){
 	//delete in physical memory
 	node* toDelete = new (nothrow) node;
 	unsigned long ppageDelete;
-	unsigned int offSet;
 	for (it = PhysMemMap.begin(); it != PhysMemMap.end(); ){
 		toDelete = it->second;
 		if (toDelete->pid == CurrentPid){
+			if (toDelete->diskBlock != NO_VALUE){
+				DiskBlocksP[toDelete->diskBlock] = false;
+			}
 			ppageDelete = toDelete->pageTableEntryP->ppage;
-			offSet = toDelete->vAddr % VM_PAGESIZE;
-			((char*)pm_physmem)[ppageDelete + offSet] = 0;
+			for (unsigned int i = 0; i < VM_PAGESIZE; i++){
+				((char*)pm_physmem)[ppageDelete * VM_PAGESIZE + i] = '\0';
+			}
 			PhysMemP[ppageDelete] = false;
 			PhysMemMap.erase(it++);
 		}
@@ -572,7 +584,7 @@ bool onDisk(unsigned long address){
  Description:
 	given an address can translate it into a page
  ***************************************************************************/
-unsigned long pageTranslate(unsigned long vAddr);
+unsigned long pageTranslate(unsigned long vPage);
 
 
 
