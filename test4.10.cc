@@ -1,6 +1,5 @@
-//Test3.10.cc: 
-//Requesting and using 6 pages while there are only 
-//4 pages in memory
+//Test4.10.cc: 
+//10 pages in memory
 
 #include <iostream>
 #include <stdint.h>
@@ -35,7 +34,7 @@ int main(){
 	a[5] = 'c';
 	a[6] = 'i';
 	a[7] = 'a';
-	vm_syslog(a, 8);
+	vm_syslog(b, 8);
 
 	cout << "Adela is awesome" << endl;
 }

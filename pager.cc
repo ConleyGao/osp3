@@ -55,9 +55,8 @@ typedef struct {
 	unsigned long vPage;					//virtual page
 	pid_t pid; 								//which process this node belongs to
 	int diskBlock;
-	unsigned int modBit;
-	unsigned int refBit;
-	//node *next;
+	unsigned int modBit :1;
+	unsigned int refBit :1;
 } node;
 
 /***************************************************************************/
@@ -65,11 +64,18 @@ typedef struct {
 static pid_t CurrentPid = 0; 					//pid of currently running process
 static unsigned int PhysicalMemSize;			//size of physical memory
 static unsigned int DiskSize;
+
+//pair of data structurs for physical memory
 static bool* PhysMemP;
+map <unsigned int, node*> PhysMemMap;
+
+//pair of data structures for disk blocks
 static bool* DiskBlocksP;
+map <unsigned int, unsigned int> DiskBlockMap;
+
 map <pid_t, unsigned long int> AppArenaMap;		//the value is the highest valid virtual address
 map <pid_t, page_table_t*> PTMap;				//page table map
-map <unsigned int, node*> PhysMemMap;
+
 
 vector<unsigned int> FreePhysMemList; 		//store the physical pages (number) that are free
 
@@ -79,7 +85,7 @@ queue<node*> ClockQueue;
 /* prototypes */
 int nextAvailablePhysMem();
 int nextAvailableDiskBlock();
-bool resident(unsigned int pageNumber);
+bool resident(page_table_entry_t* entry);
 bool onDisk(unsigned long addr);
 unsigned long pageTranslate(unsigned long vPage);
 
@@ -222,7 +228,7 @@ int vm_fault(void *addr, bool write_flag){
 
 	int nextPhysMem = 0;
 	//if the page is not in resident (i.e not in physical memory)
-	if (!resident(ppageNumber)){
+	if (!resident(tempEntry)){
 		cout << "not resident" << endl;
 		nextPhysMem = nextAvailablePhysMem();
 		cout << "next availabe physical memory is: " << nextPhysMem << endl;
@@ -231,42 +237,44 @@ int vm_fault(void *addr, bool write_flag){
 		if (nextPhysMem == NO_VALUE){
 			node* curr = ClockQueue.front();
 			ClockQueue.pop();
+			cout << "size of queue: " << ClockQueue.size() << endl;
 			while (true){
 				if (curr->refBit == 0){
-					int availPhysPage = curr->pageTableEntryP->ppage;
-					cout << "evicting physical page: " << availPhysPage << endl;
+					int evictedPage = curr->pageTableEntryP->ppage;
+					cout << "evicting physical page: " << evictedPage << endl;
+
+					//evicting the page of curr so set both read and write to 0
+					curr->pageTableEntryP->read_enable = 0;
+					curr->pageTableEntryP->write_enable = 0;
 
 					//replacing that page with the current page
-					tempEntry->ppage = availPhysPage;
+					tempEntry->ppage = evictedPage;
 
 					int nextBlock = nextAvailableDiskBlock();
 					if (nextBlock == NO_VALUE){
 						return FAILURE;
 					}
 
-					//need to also clear data in physical memory (pm_physmem) when
-					//evicting a page
-
-					/* 
-
-					Question: what happen if we are trying to access a page 
-					that is not in memory, but ON THE DISK. Should we always check for that?
-					How do we know if a page is on the disk when it's not in memory?
-
-					*/
-
 					node* newNode = new (nothrow) node;
 
-					//write to swap space if page has been modified
+					//write to swap space if the evicted page has been modified
 					if (curr->modBit == 1){
-						disk_write(nextBlock, curr->pageTableEntryP->ppage);
+						disk_write(nextBlock, evictedPage);
 						newNode->diskBlock = nextBlock;
 						DiskBlocksP[nextBlock] = true;
+						DiskBlockMap[evictedPage] = nextBlock;
+						for (unsigned int i = 0; i < VM_PAGESIZE; i++){
+							((char*)pm_physmem)[evictedPage * VM_PAGESIZE + i] = '\0';
+						}
 					}
 					else {
 						newNode->diskBlock = NO_VALUE;
 					}
 
+					//the faulted page is already on disk, restore the information
+					if (DiskBlockMap.count(ppageNumber) > 0){
+						disk_read(DiskBlockMap[ppageNumber], evictedPage);
+					}
 					//creating a new entry for the queue for replacement
 					
 					newNode->pageTableEntryP = tempEntry;
@@ -279,19 +287,21 @@ int vm_fault(void *addr, bool write_flag){
 					//(!)this part I don't know if it's correct or not
 					if (write_flag == true){
 						tempEntry->write_enable = 1;
+						tempEntry->read_enable = 0;
 						newNode->modBit = 1;
 					}
 					else {
 						tempEntry->write_enable = 0;
+						tempEntry->read_enable = 1;
 						newNode->modBit = 0;
 					}
-					tempEntry->read_enable = 1;
+					
 					//(!)that part ends here
 
 					//updating queue and physical memory map
 					ClockQueue.push(newNode);
-					PhysMemP[availPhysPage] = true;
-					PhysMemMap[availPhysPage] = newNode;
+					PhysMemP[evictedPage] = true;
+					PhysMemMap[evictedPage] = newNode;
 
 					break;
 				}
@@ -316,14 +326,6 @@ int vm_fault(void *addr, bool write_flag){
 				tempEntry->read_enable = 1;
 			}
 
-			//cout << "what I need to look at " << &(page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE]) << endl;
-			// cout << "node write " 
-			// 	 << page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE].write_enable << endl;
-			// cout << "node read " 
-			// 	 << page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE].read_enable << endl;
-			// cout << "node ppage " 
-			//  	 << page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE].ppage << endl;
-			
 			//create a node in the memory
 			node* nodeCreate = new (nothrow) node;
 			nodeCreate->modBit = 0;
@@ -355,7 +357,7 @@ int vm_fault(void *addr, bool write_flag){
 	}
 	//the page is resident, update the bits, change the protections
 	else {
-		unsigned int tempPhysPage = tempEntry->ppage/VM_PAGESIZE;
+		unsigned int tempPhysPage = tempEntry->ppage;
 		node* tempNode = PhysMemMap[tempPhysPage];
 		
 		if (write_flag == true){
@@ -390,16 +392,29 @@ void vm_destroy(){
 	PTMap.erase(CurrentPid);
 	map<unsigned int, node*>::iterator it = PhysMemMap.begin();
 
+	//remove from ClockQueue
+	node *toDelete = new (nothrow) node;
+	unsigned int queueSize = ClockQueue.size();
+	for (unsigned int i = 0; i < queueSize; i++){
+		toDelete = ClockQueue.front();
+		ClockQueue.pop();
+		if (toDelete->pid != CurrentPid){
+			ClockQueue.push(toDelete);
+		}
+	}
+
 	//delete in physical memory
-	node* toDelete = new (nothrow) node;
+	//node* toDelete = new (nothrow) node;
 	unsigned long ppageDelete;
 	for (it = PhysMemMap.begin(); it != PhysMemMap.end(); ){
 		toDelete = it->second;
 		if (toDelete->pid == CurrentPid){
-			if (toDelete->diskBlock != NO_VALUE){
-				DiskBlocksP[toDelete->diskBlock] = false;
-			}
 			ppageDelete = toDelete->pageTableEntryP->ppage;
+			if (toDelete->diskBlock != NO_VALUE){
+				cout << "setting block " << toDelete->diskBlock << endl;
+				DiskBlocksP[toDelete->diskBlock] = false;
+				DiskBlockMap.erase(ppageDelete);
+			}		
 			for (unsigned int i = 0; i < VM_PAGESIZE; i++){
 				((char*)pm_physmem)[ppageDelete * VM_PAGESIZE + i] = '\0';
 			}
@@ -431,7 +446,7 @@ void * vm_extend(){
 		return NULL;
 	}
 
-	unsigned long int nextLowest = AppArenaMap[CurrentPid];
+	unsigned long nextLowest = AppArenaMap[CurrentPid];
 
 	//no valid address, starting at base
 	if (nextLowest == INVALID){
@@ -461,7 +476,7 @@ void * vm_extend(){
 	page_table_entry_t* tempEntry = &(page_table_base_register->ptes[validPageNum]);
 	tempEntry->read_enable = 0;
 	tempEntry->write_enable = 0;
-	tempEntry->ppage = INVALID;
+	tempEntry->ppage = PhysicalMemSize + 1;
 
 	return (void*)nextLowest;
 }
@@ -484,15 +499,20 @@ int vm_syslog(void *message, unsigned int len){
 	}
 
 	string s;
-	int vpageNumber = 0;
-	int pageOffSet = 0;
+	unsigned int vpageNumber = 0;
+	unsigned int pageOffSet = 0;
+	page_table_entry_t* tempEntry = new page_table_entry_t;
 	int pAddr = 0;
 
 	for (unsigned long i = 0; i < len; i++){
 		//translating from virtual address to physical address
 		vpageNumber = currAddr / VM_PAGESIZE;
 		pageOffSet = currAddr % VM_PAGESIZE;
-		pAddr = page_table_base_register->ptes[vpageNumber - VM_ARENA_BASEPAGE].ppage * VM_PAGESIZE;
+		tempEntry = &(page_table_base_register->ptes[vpageNumber - VM_ARENA_BASEPAGE]);
+		if (tempEntry->read_enable == 0 && tempEntry->write_enable == 0){
+			return FAILURE;
+		}
+		pAddr = tempEntry->ppage * VM_PAGESIZE;
 
 		//constructing the string
 		s += string(1,((char*)pm_physmem)[pAddr + pageOffSet]);
@@ -551,14 +571,14 @@ int nextAvailableDiskBlock(){
  Description:
 	
  ***************************************************************************/
-bool resident(unsigned int ppageNumber){
+bool resident(page_table_entry_t* entry){
 	// if (PhysMemMap[ppageNumber] != NULL){
 	// 	return true;
 	// }
 	// else {
 	// 	return false;
 	// }
-	return !(ppageNumber == INVALID);
+	return (entry->read_enable == 1 || entry->write_enable == 1);
 }
 
 /***************************************************************************
