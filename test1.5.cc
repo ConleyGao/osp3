@@ -15,11 +15,11 @@ int main(){
 	//cout << "test1: get a = " << hex << a << endl;
 	// cout << "test1: get p = " << p << endl;
 	
-	for (int i = 0; i < 100; i++){
+	for (int i = 0; i < 50; i++){
 		a[i] = 'a';
 	}
 
-	vm_yield();
+	//vm_yield();
 
 	vm_syslog(a,100);
 

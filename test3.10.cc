@@ -9,7 +9,7 @@
 using namespace std;
 
 int main(){
-	char *a, *b, *c, *d, *e, *f; 
+	char *a, *b, *c, *d, *e, *f, *g; 
 	a = (char *) vm_extend();
 	b = (char *) vm_extend();
 	c = (char *) vm_extend();
@@ -28,6 +28,8 @@ int main(){
 	f[5] = '!';
 	//a[0] = 'H';
 
+	cout << "c2: " << c[2] << endl;
+
 	a[1] = 'v';
 	a[2] = 'e';
 	a[3] = 'n';
@@ -36,6 +38,10 @@ int main(){
 	a[6] = 'i';
 	a[7] = 'a';
 	vm_syslog(a, 8);
+	//vm_syslog(g, 8);
+	vm_syslog(d, 8);
+
+	cout << "c2(2): " << c[2] << endl;
 
 	cout << "Adela is awesome" << endl;
 }
