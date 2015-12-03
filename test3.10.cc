@@ -40,8 +40,14 @@ int main(){
 	vm_syslog(a, 8);
 	//vm_syslog(g, 8);
 	vm_syslog(d, 8);
+	vm_syslog(b, 15);
+	vm_syslog(c, 15);
+	vm_syslog(d, 15);
+	vm_syslog(e, 15);
+	vm_syslog(f, 15);
+	vm_syslog(a, 15);
 
 	cout << "c2(2): " << c[2] << endl;
 
-	cout << "Adela is awesome" << endl;
+	cout << "Adele(a) is awesome" << endl;
 }
