@@ -57,7 +57,7 @@ typedef struct {
 	unsigned long vPage;					//virtual page
 	pid_t pid; 								//which process this node belongs to
 	int diskBlock;
-	unsigned int zeroFilledbit : 1;			//don't know why we need this
+	unsigned int zeroFilledbit : 1;			//don't know why we need this //memset
 	unsigned int modBit :1;
 	unsigned int refBit :1;
 } node;
