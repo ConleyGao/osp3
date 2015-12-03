@@ -9,7 +9,7 @@
 using namespace std;
 
 int main(){
-	char *a, *b, *c, *d, *e, *f, *g; 
+	char *a, *b, *c, *d, *e, *f; 
 	a = (char *) vm_extend();
 	b = (char *) vm_extend();
 	c = (char *) vm_extend();

@@ -59,7 +59,7 @@ typedef struct {
 	unsigned long vPage;					//virtual page
 	pid_t pid; 								//which process this node belongs to
 	int diskBlock;
-	unsigned int zeroFilledbit : 1;			//don't know why we need this
+	// unsigned int zeroFilledbit : 1;			//don't know why we need this
 	unsigned int modBit :1;
 	unsigned int refBit :1;
 } node;
@@ -72,6 +72,7 @@ typedef struct {
 typedef struct {
 	unsigned int diskBlock;
 	bool resident;
+	//unsigned int zeroFilledbit :1;
 } vpageinfo;
 
 /***************************************************************************/
@@ -255,7 +256,7 @@ int vm_fault(void *addr, bool write_flag){
 	page_table_entry_t* tempEntry = &(page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE]);
 	// cerr << "what I am looking at " << tempEntry << endl;
 	// cerr << "physical page number: " << hex << tempEntry->ppage << endl;
-	unsigned int ppageNumber = tempEntry->ppage;
+	// unsigned int ppageNumber = tempEntry->ppage;
 
 	int nextPhysMem = 0;
 	//if the page is not in resident (i.e not in physical memory)
@@ -289,18 +290,31 @@ int vm_fault(void *addr, bool write_flag){
 					tempEntry->ppage = evictedPage;
 
 					//write to swap space if the evicted page has been modified
-					if (curr->modBit == 1){
-						disk_write(curr->diskBlock, evictedPage);		
-						//DiskBlocksP[nextBlock] = true;
-						//DiskBlockMap[evictedPage] = nextBlock;
-					}
-						
-					zeroFill(evictedPage);
+					//bool filledStatus = DiskBlockMap[curr->vPage][curr->pid].zeroFilledbit;
+					
+					//has never been modified before
+					//if (!filledStatus){
+						if (curr->modBit == 1){
+							disk_write(curr->diskBlock, evictedPage);
+							//DiskBlockMap[curr->vPage][curr->pid].zeroFilledbit = 1;	
+							//zeroFill(evictedPage);	
+							//DiskBlocksP[nextBlock] = true;
+							//DiskBlockMap[evictedPage] = nextBlock;
+						}
+					//}
+					// else {
+					// 	//clear the memory the evicted page consumes
+					// 	zeroFill(evictedPage);
+					// }
 
+					zeroFill(evictedPage);
+					
 					//the faulted page is already on disk, restore the information
-					if (DiskBlockMap.count(ppageNumber) > 0){
-						if ((DiskBlockMap[ppageNumber]).count(CurrentPid) > 0){
-							disk_read((DiskBlockMap[ppageNumber])[CurrentPid].diskBlock, evictedPage);
+					if (DiskBlockMap.count(pageNumber) > 0){
+						if ((DiskBlockMap[pageNumber]).count(CurrentPid) > 0){
+							//if ((DiskBlockMap[pageNumber])[CurrentPid].zeroFilledbit == 1){
+							disk_read((DiskBlockMap[pageNumber])[CurrentPid].diskBlock, evictedPage);
+							//}
 						}
 					}
 
@@ -310,7 +324,7 @@ int vm_fault(void *addr, bool write_flag){
 					newNode->diskBlock = (DiskBlockMap[pageNumber])[CurrentPid].diskBlock;
 					newNode->pid = CurrentPid;
 					newNode->vPage = pageNumber;
-					newNode->zeroFilledbit = 1;					
+					//newNode->zeroFilledbit = 1;					
 					newNode->refBit = 1;
 
 					if (write_flag == true){
@@ -369,7 +383,7 @@ int vm_fault(void *addr, bool write_flag){
 			// 	((char*)pm_physmem)[i] = '\0';
 			// }
 			zeroFill(nextPhysMem);
-			nodeCreate->zeroFilledbit = 1;
+			//nodeCreate->zeroFilledbit = 1;
 
 			//stick the node to the end of clock queue
 			ClockQueue.push(nodeCreate);
@@ -552,7 +566,8 @@ int vm_syslog(void *message, unsigned int len){
 		//translating from virtual address to physical address
 		vpageNumber = currAddr / VM_PAGESIZE;
 		tempEntry = &(page_table_base_register->ptes[vpageNumber - VM_ARENA_BASEPAGE]);
-		if (tempEntry->read_enable == 0){
+		if (!resident(vpageNumber)){
+			// cerr << "i'm not resident" << endl;
 			if (vm_fault((void*)currAddr, false) == FAILURE){
 				return FAILURE;
 			}
@@ -574,6 +589,8 @@ int vm_syslog(void *message, unsigned int len){
 
 		//constructing the string
 		s += string(1,((char*)pm_physmem)[pAddr + pageOffSet]);
+
+		//s.append(1, ((char*)pm_physmem)[pAddr + pageOffSet]);
 
 		//going to the next bytes (address)
 		++currAddr;
@@ -669,11 +686,11 @@ bool resident(unsigned int vPage){
 	zero fill all the data associated with the given physical page number
  ***************************************************************************/
 void zeroFill(unsigned int ppage){
-	// for (unsigned int i = 0; i < VM_PAGESIZE; i++){
-	// 	((char*)pm_physmem)[ppage * VM_PAGESIZE + i] = '\0';
-	// }
+	for (unsigned int i = 0; i < VM_PAGESIZE; i++){
+		((char*)pm_physmem)[ppage * VM_PAGESIZE + i] = 0;
+	}
 
-	memset(&(((char*)pm_physmem)[ppage]), '\0', VM_PAGESIZE);
+	//memset(&(((char*)pm_physmem)[ppage]), 0, VM_PAGESIZE);
 
 }
 
