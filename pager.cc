@@ -31,11 +31,13 @@
 /* include files */
 #include <cstdlib>
 #include <stdint.h>
+#include <stdio.h>
 #include <iostream>
 #include "vm_pager.h"
 #include <map>
 #include <set>
 #include <string>
+#include <string.h>
 #include <vector>
 #include <queue>
 #include <algorithm>
@@ -57,7 +59,7 @@ typedef struct {
 	unsigned long vPage;					//virtual page
 	pid_t pid; 								//which process this node belongs to
 	int diskBlock;
-	unsigned int zeroFilledbit : 1;			//don't know why we need this //memset
+	unsigned int zeroFilledbit : 1;			//don't know why we need this
 	unsigned int modBit :1;
 	unsigned int refBit :1;
 } node;
@@ -667,14 +669,13 @@ bool resident(unsigned int vPage){
 	zero fill all the data associated with the given physical page number
  ***************************************************************************/
 void zeroFill(unsigned int ppage){
-	for (unsigned int i = 0; i < VM_PAGESIZE; i++){
-		((char*)pm_physmem)[ppage * VM_PAGESIZE + i] = '\0';
-	}
+	// for (unsigned int i = 0; i < VM_PAGESIZE; i++){
+	// 	((char*)pm_physmem)[ppage * VM_PAGESIZE + i] = '\0';
+	// }
+
+	memset(&(((char*)pm_physmem)[ppage]), '\0', VM_PAGESIZE);
+
 }
-
-
-
-
 
 
 /****** END OF FILE ********************************************************/

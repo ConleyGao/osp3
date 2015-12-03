@@ -9,12 +9,14 @@
 using namespace std;
 
 int main(){
-	char *a;
+	char *a, *b;
 	a = (char *) vm_extend();
-	a = (char *) vm_extend();
+	b = a;
+	a[0] = 's';
+	//a = (char *) vm_extend();
 
 
-	a[0] = 'm';
+	//a[0] = 'm';
 	a[1] = 'e';
 	a[2] = 'r';
 	a[3] = 'p';
@@ -24,6 +26,7 @@ int main(){
 	a[7] = 'r';
 	a[8] = 'p';
 	vm_syslog(a, 0);
+	vm_syslog(b, 1);
 
 	cout << "Last statement" << endl;
 }
