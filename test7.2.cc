@@ -25,7 +25,12 @@ int main(){
 	a[6] = 'e';
 	a[7] = 'r';
 	a[8] = 'p';
-	vm_syslog(a, 9);
+	if (vm_syslog(a, 9) == -1){
+		cout << "syslog for a fails. Buggy pager!" << endl;
+	}
+	else {
+		cout << "syslog for a succeeds" << endl;
+	}
 
 	cout << "Last statement" << endl;
 }

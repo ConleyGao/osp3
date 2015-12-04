@@ -13,7 +13,7 @@ int main(){
 	char *a = (char*) vm_extend();
 	a[0] = 's';
 	unsigned int i;
-	for (i = 0; i <= 5; i++){
+	for (i = 0; i < 5; i++){
 		a = (char *) vm_extend();
 		if (a == NULL){
 			cout << "not enough arena size for " << i << endl;
@@ -21,7 +21,7 @@ int main(){
 		}
 	}
 	
-	if (i >= 5){
+	if (i > 5){
 		cout << "pager is buggy" << endl;
 	}
 
