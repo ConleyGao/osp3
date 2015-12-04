@@ -279,7 +279,7 @@ int vm_fault(void *addr, bool write_flag){
 					if ((*currMapP)[pageNumber]->zeroFilledbit == 1){
 						disk_read((*currMapP)[pageNumber]->diskBlock, evictedPage);
 					}
-
+				
 					cerr << "Page " << hex << curr->vPage << " of process " << curr->pid << " evicted" << endl;
 
 					//creating a new entry for the queue for replacement	
@@ -487,7 +487,6 @@ int vm_syslog(void *message, unsigned int len){
 		//s += string(1,((char*)pm_physmem)[pAddr + pageOffSet]);
 
 		s.append(1, ((char*)pm_physmem)[pAddr + pageOffSet]);
-
 		//going to the next bytes (address)
 		++currAddr;
 	}	
