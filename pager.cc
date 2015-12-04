@@ -72,7 +72,7 @@ typedef struct {
 typedef struct {
 	unsigned int diskBlock;
 	bool resident;
-	//unsigned int zeroFilledbit :1;
+	unsigned int zeroFilledbit :1;
 } vpageinfo;
 
 /***************************************************************************/
@@ -298,8 +298,6 @@ int vm_fault(void *addr, bool write_flag){
 							disk_write(curr->diskBlock, evictedPage);
 							//DiskBlockMap[curr->vPage][curr->pid].zeroFilledbit = 1;	
 							//zeroFill(evictedPage);	
-							//DiskBlocksP[nextBlock] = true;
-							//DiskBlockMap[evictedPage] = nextBlock;
 						}
 					//}
 					// else {
@@ -308,15 +306,26 @@ int vm_fault(void *addr, bool write_flag){
 					// }
 
 					zeroFill(evictedPage);
+
+
+
+					cout << "blah blah" << endl;
 					
-					//the faulted page is already on disk, restore the information
-					if (DiskBlockMap.count(pageNumber) > 0){
-						if ((DiskBlockMap[pageNumber]).count(CurrentPid) > 0){
-							//if ((DiskBlockMap[pageNumber])[CurrentPid].zeroFilledbit == 1){
-							disk_read((DiskBlockMap[pageNumber])[CurrentPid].diskBlock, evictedPage);
-							//}
-						}
+					// //the faulted page is already on disk, restore the information
+					// if (DiskBlockMap.count(pageNumber) > 0){
+					// 	if ((DiskBlockMap[pageNumber]).count(CurrentPid) > 0){
+					// 		//if ((DiskBlockMap[pageNumber])[CurrentPid].zeroFilledbit == 1){
+					// 		disk_read((DiskBlockMap[pageNumber])[CurrentPid].diskBlock, evictedPage);
+					// 		//}
+					// 	}
+					// }
+					if ((DiskBlockMap[pageNumber])[CurrentPid].zeroFilledbit == 1){
+						disk_read((DiskBlockMap[pageNumber])[CurrentPid].diskBlock, evictedPage);
 					}
+
+					// for (unsigned int i = 0; i < VM_PAGESIZE; i++){
+					// 	cout << ((char*)pm_physmem)[evictedPage*VM_PAGESIZE + i];
+					// }
 
 					//creating a new entry for the queue for replacement	
 					node* newNode = new (nothrow) node;
@@ -473,7 +482,7 @@ void vm_destroy(){
 
 	//delete in disk block
 	// cerr << "finished destroying " << CurrentPid << endl;
-	// cerr << "============================================" << endl;
+	cerr << "============================================" << endl;
 }
 
 /***************************************************************************
@@ -487,18 +496,10 @@ void vm_destroy(){
  ***************************************************************************/
 void * vm_extend(){
 	//check if having enough disk blocks to write if necessary
-
-	//not enough disk blocks to back up
-	// if (FreeDiskBlocks.empty()){
-	// 	return NULL;
-	// }
-
 	int diskBlock = nextAvailableDiskBlock();
 	if (diskBlock == NO_VALUE){
 		return NULL;
 	}
-
-	//unsigned long nextLowest = AppArenaMap[CurrentPid];
 
 	unsigned long nextLowest = ProcessMap[CurrentPid].lowestValidAddr;
 
@@ -511,28 +512,18 @@ void * vm_extend(){
 		return NULL;
 	}
 
-	//// cerr << "returning " << hex << nextLowest << endl;
+	// cerr << "returning " << hex << nextLowest << endl;
 
 	//getting the page that corresponds to the valid address
 	unsigned int validPageNum = nextLowest / VM_PAGESIZE;
 
 	//after that, update the next highest valid bit
-	//AppArenaMap[CurrentPid] = nextLowest + VM_PAGESIZE;
 	ProcessMap[CurrentPid].lowestValidAddr = nextLowest + VM_PAGESIZE;
 
 	//assign a specific disk block to any page number, and this will ALWAYS stay constant
 	// cerr << "assiging block " << diskBlock << " to " << validPageNum << " of " << CurrentPid << endl;
 	DiskBlockMap[validPageNum][CurrentPid].diskBlock = diskBlock;
-	// DiskBlockMap[validPageNum] = diskBlock;
-
-	//initializing the entry in page table
-	//find the page table entry that corresponds to the lowest virtual address
-	//set the read bit and write bit to 0 --> unused page
-	//need pointer so we will change the value in the actual page table, not just the copy
-	// page_table_entry_t* tempEntry = &(page_table_base_register->ptes[validPageNum]);
-	// tempEntry->read_enable = 0;
-	// tempEntry->write_enable = 0;
-	// tempEntry->ppage = PhysicalMemSize + 1;
+	DiskBlockMap[validPageNum][CurrentPid].zeroFilledbit = 0;
 
 	return (void*)nextLowest;
 }
@@ -550,7 +541,7 @@ int vm_syslog(void *message, unsigned int len){
 
 	unsigned long currAddr = (intptr_t) message;
 
-	//// cerr << hex << "syslonging: " << currAddr << endl;
+	// cerr << hex << "syslonging: " << currAddr << endl;
 
 	if (currAddr + len > ProcessMap[CurrentPid].lowestValidAddr || len == 0){
 		return FAILURE;
@@ -577,20 +568,13 @@ int vm_syslog(void *message, unsigned int len){
 		}
 		// cerr << "vpageNumber = " << vpageNumber << endl;
 		pageOffSet = currAddr % VM_PAGESIZE;
-		
-		// if (tempEntry->read_enable == 0 && tempEntry->write_enable == 0){
-		// 	return FAILURE;
-		// }
-		// if (tempEntry->zeroFilledbit == 0){
-		// 	return FAILURE;
-		// }
 
 		pAddr = tempEntry->ppage * VM_PAGESIZE;
 
 		//constructing the string
-		s += string(1,((char*)pm_physmem)[pAddr + pageOffSet]);
+		//s += string(1,((char*)pm_physmem)[pAddr + pageOffSet]);
 
-		//s.append(1, ((char*)pm_physmem)[pAddr + pageOffSet]);
+		s.append(1, ((char*)pm_physmem)[pAddr + pageOffSet]);
 
 		//going to the next bytes (address)
 		++currAddr;
@@ -641,11 +625,6 @@ int nextAvailablePhysMem(){
 	
  ***************************************************************************/
 int nextAvailableDiskBlock(){
-	// for (unsigned int i = 0; i < DiskSize; i++){
-	// 	if (DiskBlocksP[i] == false){
-	// 		return i;
-	// 	}
-	// }
 	if (FreeDiskBlocks.empty()){
 		return NO_VALUE;
 	}
@@ -666,16 +645,7 @@ int nextAvailableDiskBlock(){
 	
  ***************************************************************************/
 bool resident(unsigned int vPage){
-	// if (PhysMemMap[ppageNumber] != NULL){
-	// 	return true;
-	// }
-	// else {
-	// 	return false;
-	// }
-
 	return (DiskBlockMap[vPage])[CurrentPid].resident;
-
-	//return (entry->zeroFilledbit == 1);
 }
 
 /***************************************************************************
@@ -693,6 +663,5 @@ void zeroFill(unsigned int ppage){
 	//memset(&(((char*)pm_physmem)[ppage]), 0, VM_PAGESIZE);
 
 }
-
 
 /****** END OF FILE ********************************************************/
