@@ -86,10 +86,8 @@ static unsigned int DiskSize;
 map <unsigned int, node*> PhysMemMap;
 //pair of data structures for disk blocks
 //static bool* DiskBlocksP;
-map <unsigned int, map<pid_t, vpageinfo> > DiskBlockMap;
-
-map <pid_t, unsigned long int> AppArenaMap;		//the value is the highest valid virtual address
-map <pid_t, page_table_t*> PTMap;				//page table map
+//map <unsigned int, map<pid_t, vpageinfo> > DiskBlockMap;
+map <pid_t, map<unsigned int, vpageinfo> > DiskBlockMap;
 
 map <pid_t, process> ProcessMap;		//combining the above 2 maps
 
@@ -125,7 +123,7 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 	PhysicalMemSize = memory_pages;
 	DiskSize = disk_blocks;
 
-	// cerr << "Number of disk blocks: " << DiskSize << endl;
+	cerr << "Number of disk blocks: " << DiskSize << endl;
 
 	//initializing array of phys mem
 	// PhysMemP = new (nothrow) bool [PhysicalMemSize];
@@ -286,7 +284,8 @@ int vm_fault(void *addr, bool write_flag){
 					curr->pageTableEntryP->write_enable = 0;
 
 					//updating residency of evicted page to false
-					(DiskBlockMap[curr->vPage])[curr->pid].resident = false;
+
+					(DiskBlockMap[curr->pid])[curr->vPage].resident = false;
 
 					//replacing that page with the current page
 					tempEntry->ppage = evictedPage;
@@ -298,7 +297,8 @@ int vm_fault(void *addr, bool write_flag){
 					//if (!filledStatus){
 					if (curr->modBit == 1){
 						disk_write(curr->diskBlock, evictedPage);
-						DiskBlockMap[curr->vPage][curr->pid].zeroFilledbit = 1;	
+
+						DiskBlockMap[curr->pid][curr->vPage].zeroFilledbit = 1;	
 						//zeroFill(evictedPage);	
 					}
 					//}
@@ -317,8 +317,10 @@ int vm_fault(void *addr, bool write_flag){
 					// 		//}
 					// 	}
 					// }
-					if ((DiskBlockMap[pageNumber])[CurrentPid].zeroFilledbit == 1){
-						disk_read((DiskBlockMap[pageNumber])[CurrentPid].diskBlock, evictedPage);
+
+
+					if ((DiskBlockMap[CurrentPid])[pageNumber].zeroFilledbit == 1){
+						disk_read((DiskBlockMap[CurrentPid])[pageNumber].diskBlock, evictedPage);
 					}
 					// else {
 					// 	zeroFill(evictedPage);
@@ -331,7 +333,7 @@ int vm_fault(void *addr, bool write_flag){
 					//creating a new entry for the queue for replacement	
 					node* newNode = new (nothrow) node;
 					newNode->pageTableEntryP = tempEntry;
-					newNode->diskBlock = (DiskBlockMap[pageNumber])[CurrentPid].diskBlock;
+					newNode->diskBlock = (DiskBlockMap[CurrentPid])[pageNumber].diskBlock;
 					newNode->pid = CurrentPid;
 					newNode->vPage = pageNumber;
 					//newNode->zeroFilledbit = 1;					
@@ -352,7 +354,7 @@ int vm_fault(void *addr, bool write_flag){
 					ClockQueue.push(newNode);
 
 					//update residency of page being put to memory to true
-					(DiskBlockMap[pageNumber])[CurrentPid].resident = true;
+					(DiskBlockMap[CurrentPid])[pageNumber].resident = true;
 
 					// PhysMemP[evictedPage] = true;
 					PhysMemMap[evictedPage] = newNode;
@@ -381,11 +383,11 @@ int vm_fault(void *addr, bool write_flag){
 			if (write_flag == true){
 				tempEntry->write_enable = 1;
 				nodeCreate->modBit = 1;
-				(DiskBlockMap[pageNumber])[CurrentPid].zeroFilledbit = 1;
+				(DiskBlockMap[CurrentPid])[pageNumber].zeroFilledbit = 1;
 			}
 			nodeCreate->vPage = pageNumber;
 			nodeCreate->pid = CurrentPid;
-			nodeCreate->diskBlock = (DiskBlockMap[pageNumber])[CurrentPid].diskBlock;
+			nodeCreate->diskBlock = (DiskBlockMap[CurrentPid])[pageNumber].diskBlock;
 			// cerr << "no memory with block " << nodeCreate->diskBlock << endl;
 			nodeCreate->pageTableEntryP = tempEntry;
 
@@ -398,7 +400,7 @@ int vm_fault(void *addr, bool write_flag){
 			ClockQueue.push(nodeCreate);
 
 			//update to true for page in memory
-			(DiskBlockMap[pageNumber])[CurrentPid].resident = true;
+			(DiskBlockMap[CurrentPid])[pageNumber].resident = true;
 
 			// PhysMemP[nextPhysMem] = true;
 			PhysMemMap[nextPhysMem] = nodeCreate;
@@ -412,7 +414,8 @@ int vm_fault(void *addr, bool write_flag){
 		if (write_flag == true){
 			tempEntry->write_enable = 1;
 			tempNode->modBit = 1;
-			(DiskBlockMap[tempNode->vPage])[CurrentPid].zeroFilledbit = 1;
+
+			(DiskBlockMap[CurrentPid])[tempNode->vPage].zeroFilledbit = 1;
 		}
 		else {
 			tempEntry->read_enable = 1;
@@ -438,9 +441,11 @@ void vm_destroy(){
 	// cerr << "destroying pid: " << CurrentPid << endl;
 	//delete page_table_base_register;
 	page_table_base_register = NULL;
-	// AppArenaMap.erase(CurrentPid);
-	// PTMap.erase(CurrentPid);
+
+	ProcessMap.erase(CurrentPid);
+
 	map<unsigned int, node*>::iterator it = PhysMemMap.begin();
+	map<unsigned int, vpageinfo>* mapP = &(DiskBlockMap[CurrentPid]);
 
 	//remove from ClockQueue
 	node* toDelete = new (nothrow) node;
@@ -464,22 +469,22 @@ void vm_destroy(){
 			ppageDelete = toDelete->pageTableEntryP->ppage;
 			if (toDelete->diskBlock != NO_VALUE){
 				// cerr << "setting block " << toDelete->diskBlock << endl;
-				//DiskBlocksP[toDelete->diskBlock] = false;
-				FreeDiskBlocks.push((DiskBlockMap[toDeleteVPage])[CurrentPid].diskBlock);
+				FreeDiskBlocks.push((*mapP)[toDeleteVPage].diskBlock);
 				FreePhysMem.push(ppageDelete);
-				DiskBlockMap[toDeleteVPage].erase(CurrentPid);
-			}		
-			// for (unsigned int i = 0; i < VM_PAGESIZE; i++){
-			// 	((char*)pm_physmem)[ppageDelete * VM_PAGESIZE + i] = '\0';
-			// }
-			zeroFill(ppageDelete);
-			//PhysMemP[ppageDelete] = false;
+				(*mapP).erase(toDeleteVPage);
+			}	
+
+			//zeroFill(ppageDelete);
 			PhysMemMap.erase(it++);
 		}
 		else {
 			++it;
 		}
 	}
+
+	for (map<unsigned int, vpageinfo>::iterator mapIt = (*mapP).begin(); mapIt != (*mapP).end(); mapIt++){
+		FreeDiskBlocks.push((mapIt->second).diskBlock);
+	}	
 
 	cerr << "size of disk queue is: " << FreeDiskBlocks.size() << endl;
 	cerr << "size of memory queue is: " << FreePhysMem.size() << endl;
@@ -526,8 +531,9 @@ void * vm_extend(){
 
 	//assign a specific disk block to any page number, and this will ALWAYS stay constant
 	// cerr << "assiging block " << diskBlock << " to " << validPageNum << " of " << CurrentPid << endl;
-	DiskBlockMap[validPageNum][CurrentPid].diskBlock = diskBlock;
-	DiskBlockMap[validPageNum][CurrentPid].zeroFilledbit = 0;
+	
+	DiskBlockMap[CurrentPid][validPageNum].diskBlock = diskBlock;
+	DiskBlockMap[CurrentPid][validPageNum].zeroFilledbit = 0;
 
 	return (void*)nextLowest;
 }
@@ -649,7 +655,7 @@ int nextAvailableDiskBlock(){
 	
  ***************************************************************************/
 bool resident(unsigned int vPage){
-	return (DiskBlockMap[vPage])[CurrentPid].resident;
+	return (DiskBlockMap[CurrentPid])[vPage].resident;
 }
 
 /***************************************************************************
