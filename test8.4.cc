@@ -1,8 +1,9 @@
-//Test5.128.cc: 
+//Test8.4.cc: 
 //128 pages in memory
 //test message with length of 0
 //test whether syslog bring things to memory
-//and make sure
+//and make sure b saves the address in a
+
 
 #include <iostream>
 #include <stdint.h>
@@ -27,14 +28,14 @@ int main(){
 	a[7] = 'r';
 	a[8] = 'p';
 
-	if (vm_syslog(b, 1) == -1){
+	if (vm_syslog(b, 10) == -1){
 		cout << "syslog at b fails" << endl;
 	}
 	else {
 		cout << "syslog at b succeeds" << endl;
 	}	
 
-	if (vm_syslog(a, 0) == -1){
+	if (vm_syslog(a, 10) == -1){
 		cout << "syslog at a fails" << endl;
 	}
 	else {

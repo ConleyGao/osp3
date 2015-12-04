@@ -125,6 +125,8 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 	PhysicalMemSize = memory_pages;
 	DiskSize = disk_blocks;
 
+	// cerr << "Number of disk blocks: " << DiskSize << endl;
+
 	//initializing array of phys mem
 	// PhysMemP = new (nothrow) bool [PhysicalMemSize];
 	// if (PhysMemP == NULL){
@@ -294,11 +296,11 @@ int vm_fault(void *addr, bool write_flag){
 					
 					//has never been modified before
 					//if (!filledStatus){
-						if (curr->modBit == 1){
-							disk_write(curr->diskBlock, evictedPage);
-							//DiskBlockMap[curr->vPage][curr->pid].zeroFilledbit = 1;	
-							//zeroFill(evictedPage);	
-						}
+					if (curr->modBit == 1){
+						disk_write(curr->diskBlock, evictedPage);
+						DiskBlockMap[curr->vPage][curr->pid].zeroFilledbit = 1;	
+						//zeroFill(evictedPage);	
+					}
 					//}
 					// else {
 					// 	//clear the memory the evicted page consumes
@@ -306,10 +308,6 @@ int vm_fault(void *addr, bool write_flag){
 					// }
 
 					zeroFill(evictedPage);
-
-
-
-					cout << "blah blah" << endl;
 					
 					// //the faulted page is already on disk, restore the information
 					// if (DiskBlockMap.count(pageNumber) > 0){
@@ -322,6 +320,9 @@ int vm_fault(void *addr, bool write_flag){
 					if ((DiskBlockMap[pageNumber])[CurrentPid].zeroFilledbit == 1){
 						disk_read((DiskBlockMap[pageNumber])[CurrentPid].diskBlock, evictedPage);
 					}
+					// else {
+					// 	zeroFill(evictedPage);
+					// }
 
 					// for (unsigned int i = 0; i < VM_PAGESIZE; i++){
 					// 	cout << ((char*)pm_physmem)[evictedPage*VM_PAGESIZE + i];
@@ -380,6 +381,7 @@ int vm_fault(void *addr, bool write_flag){
 			if (write_flag == true){
 				tempEntry->write_enable = 1;
 				nodeCreate->modBit = 1;
+				(DiskBlockMap[pageNumber])[CurrentPid].zeroFilledbit = 1;
 			}
 			nodeCreate->vPage = pageNumber;
 			nodeCreate->pid = CurrentPid;
@@ -387,11 +389,9 @@ int vm_fault(void *addr, bool write_flag){
 			// cerr << "no memory with block " << nodeCreate->diskBlock << endl;
 			nodeCreate->pageTableEntryP = tempEntry;
 
-			//zero-filling for association (confused)
-			// for (unsigned int i = nextPhysMem; i < (unsigned int)nextPhysMem + VM_PAGESIZE; i++){
-			// 	((char*)pm_physmem)[i] = '\0';
-			// }
+			//zero fill because trying to read (what abour writing?)
 			zeroFill(nextPhysMem);
+			
 			//nodeCreate->zeroFilledbit = 1;
 
 			//stick the node to the end of clock queue
@@ -412,6 +412,7 @@ int vm_fault(void *addr, bool write_flag){
 		if (write_flag == true){
 			tempEntry->write_enable = 1;
 			tempNode->modBit = 1;
+			(DiskBlockMap[tempNode->vPage])[CurrentPid].zeroFilledbit = 1;
 		}
 		else {
 			tempEntry->read_enable = 1;
@@ -480,6 +481,9 @@ void vm_destroy(){
 		}
 	}
 
+	cerr << "size of disk queue is: " << FreeDiskBlocks.size() << endl;
+	cerr << "size of memory queue is: " << FreePhysMem.size() << endl;
+
 	//delete in disk block
 	// cerr << "finished destroying " << CurrentPid << endl;
 	cerr << "============================================" << endl;
@@ -497,7 +501,7 @@ void vm_destroy(){
 void * vm_extend(){
 	//check if having enough disk blocks to write if necessary
 	int diskBlock = nextAvailableDiskBlock();
-	if (diskBlock == NO_VALUE){
+	if (diskBlock == NO_VALUE){ 
 		return NULL;
 	}
 
