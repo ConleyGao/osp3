@@ -58,7 +58,6 @@ typedef struct {
 	page_table_entry_t* pageTableEntryP;	//points to the entry in the corresponding page table
 	unsigned long vPage;					//virtual page
 	pid_t pid; 								//which process this node belongs to
-	int diskBlock;
 	unsigned int modBit :1;
 	unsigned int refBit :1;
 } node;
@@ -83,6 +82,7 @@ static unsigned int DiskSize;
 //pair of data structurs for physical memory
 map <unsigned int, node*> PhysMemMap;
 map <pid_t, map<unsigned int, vpageinfo* > > DiskBlockMap;
+map <unsigned int, vpageinfo*>* currMapP;
 
 map <pid_t, process> ProcessMap;		//combining the above 2 maps
 
@@ -181,6 +181,9 @@ void vm_switch(pid_t pid){
 
 	//pointing the current pointer to the page table of switched-to process
 	page_table_base_register = ProcessMap[CurrentPid].pageTableP;
+
+	//point to the current map of virtual pages of the current process
+	currMapP = &(DiskBlockMap[CurrentPid]);
 	
 }
 
@@ -213,6 +216,9 @@ int vm_fault(void *addr, bool write_flag){
 	unsigned int pageNumber = virtualAddr / VM_PAGESIZE;
 	page_table_entry_t* tempEntry = &(page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE]);
     
+	//create a pointer that points to faulted page entry in DiskBlockMap
+	//map<unsigned int, vpageinfo*>* faultP = DiskBlockMap
+
 #ifdef PRINT
     cerr << "virtual page number: " << hex << pageNumber << endl;
 	cerr << "what I am looking at " << tempEntry << endl;
@@ -248,46 +254,46 @@ int vm_fault(void *addr, bool write_flag){
 
 					//updating residency of evicted page to false
 
-					(DiskBlockMap[curr->pid])[curr->vPage]->resident = false;
+					//pointer to the evicted page in DiskBlockMap
+					vpageinfo* evictedP = (DiskBlockMap[curr->pid])[curr->vPage];
+					//map<unsigned int, vpageinfo*> *evictedP = &(DiskBlockMap[curr->pid]);
 
-					//replacing that page with the current page
-					tempEntry->ppage = evictedPage;
+					evictedP->resident = false;
 
-					//write to swap space if the evicted page has been modified
-					
-					//has never been modified before
-					if (curr->modBit == 1){
-						disk_write(curr->diskBlock, evictedPage);
-
-						DiskBlockMap[curr->pid][curr->vPage]->zeroFilledbit = 1;	
-						//zeroFill(evictedPage);	
+					//write to swap space if the evicted page has been modified				
+					if (evictedP->zeroFilledbit == 0){
+						if (curr->modBit == 1){
+							disk_write(evictedP->diskBlock, evictedPage);
+							evictedP->zeroFilledbit = 1;	
+						}
 					}
-					//}
-					// else {
-					// 	//clear the memory the evicted page consumes
-					// 	zeroFill(evictedPage);
-					// }
+					else if (curr->modBit == 1){
+					 	disk_write(evictedP->diskBlock, evictedPage);
+					}
 
 					zeroFill(evictedPage);
+
+					//switch the pointer to entry of new page being put into memory
+					//currMap = &(DiskBlockMap[CurrentPid]);
 					
 					// //the faulted page is already on disk, restore the information
-					if ((DiskBlockMap[CurrentPid])[pageNumber]->zeroFilledbit == 1){
-						disk_read((DiskBlockMap[CurrentPid])[pageNumber]->diskBlock, evictedPage);
+					if ((*currMapP)[pageNumber]->zeroFilledbit == 1){
+						disk_read((*currMapP)[pageNumber]->diskBlock, evictedPage);
 					}
 
 					//creating a new entry for the queue for replacement	
 					node* newNode = new (nothrow) node;
+					tempEntry->ppage = evictedPage;
 					newNode->pageTableEntryP = tempEntry;
-					newNode->diskBlock = (DiskBlockMap[CurrentPid])[pageNumber]->diskBlock;
 					newNode->pid = CurrentPid;
-					newNode->vPage = pageNumber;
-					//newNode->zeroFilledbit = 1;					
+					newNode->vPage = pageNumber;					
 					newNode->refBit = 1;
 
 					if (write_flag == true){
 						tempEntry->write_enable = 1;
 						tempEntry->read_enable = 1;
 						newNode->modBit = 1;
+						(*currMapP)[pageNumber]->zeroFilledbit = 1;
 					}
 					else {
 						tempEntry->write_enable = 0;
@@ -295,11 +301,13 @@ int vm_fault(void *addr, bool write_flag){
 						newNode->modBit = 0;
 					}
 
+					cerr << "Page " << hex << curr->vPage << " of process " << curr->pid << " evicted" << endl;
+
 					//updating queue and physical memory map
 					ClockQueue.push(newNode);
 
 					//update residency of page being put to memory to true
-					(DiskBlockMap[CurrentPid])[pageNumber]->resident = true;
+					(*currMapP)[pageNumber]->resident = true;
 
 					// PhysMemP[evictedPage] = true;
 					PhysMemMap[evictedPage] = newNode;
@@ -330,11 +338,11 @@ int vm_fault(void *addr, bool write_flag){
 			if (write_flag == true){
 				tempEntry->write_enable = 1;
 				nodeCreate->modBit = 1;
-				(DiskBlockMap[CurrentPid])[pageNumber]->zeroFilledbit = 1;
+				(*currMapP)[pageNumber]->zeroFilledbit = 1;
 			}
 			nodeCreate->vPage = pageNumber;
 			nodeCreate->pid = CurrentPid;
-			nodeCreate->diskBlock = (DiskBlockMap[CurrentPid])[pageNumber]->diskBlock;
+			//nodeCreate->diskBlock = (*currMapP)[pageNumber]->diskBlock;
 			// cerr << "no memory with block " << nodeCreate->diskBlock << endl;
 			nodeCreate->pageTableEntryP = tempEntry;
 
@@ -347,7 +355,7 @@ int vm_fault(void *addr, bool write_flag){
 			ClockQueue.push(nodeCreate);
 
 			//update to true for page in memory
-			(DiskBlockMap[CurrentPid])[pageNumber]->resident = true;
+			(*currMapP)[pageNumber]->resident = true;
 
 			// PhysMemP[nextPhysMem] = true;
 			PhysMemMap[nextPhysMem] = nodeCreate;
@@ -358,15 +366,15 @@ int vm_fault(void *addr, bool write_flag){
 		unsigned int tempPhysPage = tempEntry->ppage;
 		node* tempNode = PhysMemMap[tempPhysPage];
 		
+		tempEntry->read_enable = 1;
 		if (write_flag == true){
 			tempEntry->write_enable = 1;
 			tempNode->modBit = 1;
-
-			(DiskBlockMap[CurrentPid])[tempNode->vPage]->zeroFilledbit = 1;
+			(*currMapP)[tempNode->vPage]->zeroFilledbit = 1;
 		}
-		else {
-			tempEntry->read_enable = 1;
-		}
+		// else {
+		// 	tempEntry->read_enable = 1;
+		// }
 		tempNode->refBit = 1;
 	}
 
@@ -396,7 +404,8 @@ void vm_destroy(){
 	ProcessMap.erase(CurrentPid);
 
 	map<unsigned int, node*>::iterator it = PhysMemMap.begin();
-	map<unsigned int, vpageinfo* > *mapP = &(DiskBlockMap[CurrentPid]);
+
+	vpageinfo* vPageP = new (nothrow) vpageinfo;
 
 	//remove from ClockQueue
 	node* toDelete = new (nothrow) node;
@@ -410,22 +419,20 @@ void vm_destroy(){
 		}
 	}
 
-	//delete in physical memory
+	//delete in physical memory, push back physical pages to free memory list
+	//push free blocks that are associated with virtual pages being destroyed
+	//to reduce the traverse time in DiskBlockMap to free the rest of the blocks
 	unsigned int ppageDelete;
-	unsigned int toDeleteVPage;
+	unsigned int vpageDelete;
 	for (it = PhysMemMap.begin(); it != PhysMemMap.end(); ){
 		toDelete = it->second;
-		toDeleteVPage = toDelete->vPage;
+		vpageDelete = toDelete->vPage;
+		vPageP = (*currMapP)[vpageDelete];
 		if (toDelete->pid == CurrentPid){
 			ppageDelete = toDelete->pageTableEntryP->ppage;
-			if (toDelete->diskBlock != NO_VALUE){
-				// cerr << "setting block " << toDelete->diskBlock << endl;
-				FreeDiskBlocks.push((*mapP)[toDeleteVPage]->diskBlock);
-				FreePhysMem.push(ppageDelete);
-				(*mapP).erase(toDeleteVPage);
-			}	
-
-			//zeroFill(ppageDelete);
+			FreeDiskBlocks.push(vPageP->diskBlock);
+			FreePhysMem.push(ppageDelete);
+			(*currMapP).erase(vpageDelete);
 			PhysMemMap.erase(it++);
 		}
 		else {
@@ -433,18 +440,19 @@ void vm_destroy(){
 		}
 	}
 
-	for (map<unsigned int, vpageinfo*  >::iterator mapIt = (*mapP).begin(); mapIt != (*mapP).end(); mapIt++){
+	//free the rest of the blocks associated with non-resident virtual pages
+	for (map<unsigned int, vpageinfo*  >::iterator mapIt = (*currMapP).begin(); mapIt != (*currMapP).end(); mapIt++){
 		FreeDiskBlocks.push((mapIt->second)->diskBlock);
 	}	
 
-#ifdef PRINT
+// #ifdef PRINT
 	cerr << "size of disk queue is: " << FreeDiskBlocks.size() << endl;
 	cerr << "size of memory queue is: " << FreePhysMem.size() << endl;
 
 	//delete in disk block
 	cerr << "finished destroying " << CurrentPid << endl;
 	cerr << "============================================" << endl;
-#endif
+// #endif
     
 }
 

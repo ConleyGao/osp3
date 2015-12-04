@@ -1,7 +1,7 @@
-//Test12.2.cc: 
-//Should never have to read pages from block for b
-//since b has never been modified (i.e never written)
-//out to disk
+//Test14.2.cc: 
+//Should never write out pages of b except for the 1st time
+//since b is never modified after that
+//Check the functionality of zeroFilledBit
 
 #include <iostream>
 #include <stdint.h>
@@ -22,11 +22,11 @@ int main(){
 	//cout << "test1: get p = " << p << endl;
 
 	a[0] = 'b';
-	//b[1] = 'd';
+	b[1] = 'd';
 	c[2] = 'e';
-	d[3] = 'l';
-	e[4] = 'a';
-	f[5] = '!';
+	// d[3] = 'l';
+	// e[4] = 'a';
+	// f[5] = '!';
 	//a[0] = 'H';
 
 	//cout << "b: " << b[2] << endl;
@@ -60,14 +60,14 @@ int main(){
 
 	a[7] = 'a';
 
-	vm_syslog(a, 8);
-	vm_syslog(d, 8);
-	vm_syslog(b, 15);
-	vm_syslog(c, 15);
-	vm_syslog(d, 15);
-	vm_syslog(e, 15);
-	vm_syslog(f, 15);
-	vm_syslog(a, 15);
+	// vm_syslog(a, 8);
+	// vm_syslog(d, 8);
+	// vm_syslog(b, 15);
+	// vm_syslog(c, 15);
+	// vm_syslog(d, 15);
+	// vm_syslog(e, 15);
+	// vm_syslog(f, 15);
+	// vm_syslog(a, 15);
 
 	cout << "c2(2): " << c[2] << endl;
 
