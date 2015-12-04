@@ -1,7 +1,5 @@
 //Test14.2.cc: 
-//Should never write out pages of b except for the 1st time
-//since b is never modified after that
-//Check the functionality of zeroFilledBit
+//Test random yields
 
 #include <iostream>
 #include <stdint.h>
@@ -21,10 +19,17 @@ int main(){
 
 	vm_syslog(b,2);
 
+	vm_yield();
+
 	a[1] = 'v';
+
+	vm_yield();
+
 	c[1] = 'c';
 
 	vm_syslog(b,2);
+
+	vm_yield();
 
 	a[2] = 'e';
 	c[2] = 'c';
@@ -37,10 +42,16 @@ int main(){
 	vm_syslog(b,2);
 
 	a[4] = 'e';
+
+	vm_yield();
+
 	c[4] = 'c';
 
 	vm_syslog(b,2);
 	a[5] = 'c';
+
+	vm_yield();
+
 	a[6] = 'i';
 
 	vm_syslog(b,2);
@@ -50,5 +61,11 @@ int main(){
 
 	cout << "c2(2): " << c[2] << endl;
 
-	cout << "Good bye world." << endl;
+	cout << "Chuc mung ban da dat 100 diem!" << endl;
+
+	cout << "!(Son shi hen cong ming)" << endl;
+
+	cout << "!(Son es muy intelligente)" << endl;
+
+	cout << "!(Son est tres intelligent)" << endl;
 }
