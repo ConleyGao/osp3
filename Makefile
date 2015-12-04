@@ -7,6 +7,9 @@ tests: test1 test2 test3 test4 test5 test6 test7
 pager:
 	$(CC) $(CFLAGS) -o pager pager.cc libvm_pager.a -ldl
 
+print:
+	$(CC) $(CFLAGS) -D PRINT -o pager pager.cc libvm_pager.a -ldl
+
 test1:
 	$(CC) $(CFLAGS) -o test1 test1.5.cc libvm_app.a -ldl
 test2:
