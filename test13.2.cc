@@ -49,5 +49,5 @@ int main(){
 
 	cout << "c2(2): " << c[2] << endl;
 
-	cout << "Good bye world." << endl;
+	cout << "Test 13 finished" << endl;
 }

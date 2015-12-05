@@ -122,9 +122,9 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 	//saving to global variables
 	PhysicalMemSize = memory_pages;
 	DiskSize = disk_blocks;
-#ifdef PRINT
-	cerr << "Number of disk blocks: " << DiskSize << endl;
-#endif
+// #ifdef PRINT
+// 	cerr << "Number of disk blocks: " << DiskSize << endl;
+// #endif
 	//initializing free physical memory list
 	for (unsigned int i = 0; i < PhysicalMemSize; i++){
 		// cerr << "pushing " << i << " to memory free" << endl;
@@ -209,9 +209,9 @@ int vm_fault(void *addr, bool write_flag){
 
 	unsigned long virtualAddr = (intptr_t) addr;
     
-#ifdef PRINT
-	cerr << "virtual address: " << virtualAddr << endl;
-#endif
+// #ifdef PRINT
+// 	cerr << "virtual address: " << virtualAddr << endl;
+// #endif
 
 	if (virtualAddr >= ProcessMap[CurrentPid].lowestValidAddr){
 		return FAILURE;
@@ -224,21 +224,21 @@ int vm_fault(void *addr, bool write_flag){
 	//create a pointer that points to faulted page entry in DiskBlockMap
 	//map<unsigned int, vpageinfo*>* faultP = DiskBlockMap
 
-#ifdef PRINT
-    cerr << "virtual page number: " << hex << pageNumber << endl;
-	cerr << "what I am looking at " << tempEntry << endl;
-	cerr << "physical page number: " << hex << tempEntry->ppage << endl;
-#endif
+// #ifdef PRINT
+//     cerr << "virtual page number: " << hex << pageNumber << endl;
+// 	cerr << "what I am looking at " << tempEntry << endl;
+// 	cerr << "physical page number: " << hex << tempEntry->ppage << endl;
+// #endif
 
 	int nextPhysMem = 0;
 	//if the page is not in resident (i.e not in physical memory)
 	if (!resident(pageNumber)){
 		nextPhysMem = nextAvailablePhysMem();
         
-#ifdef PRINT
-        cerr << "not resident" << endl;
-		cerr << "next availabe physical memory is: " << nextPhysMem << endl;
-#endif
+// #ifdef PRINT
+//         cerr << "not resident" << endl;
+// 		cerr << "next availabe physical memory is: " << nextPhysMem << endl;
+// #endif
         
 		//there is no free physical memory, so have to run second-chance clock
 		//algorithm to evict active pages
@@ -280,7 +280,7 @@ int vm_fault(void *addr, bool write_flag){
 						disk_read((*currMapP)[pageNumber]->diskBlock, evictedPage);
 					}
 				
-					cerr << "Page " << hex << curr->vPage << " of process " << curr->pid << " evicted" << endl;
+					//cerr << "Page " << hex << curr->vPage << " of process " << curr->pid << " evicted" << endl;
 
 					//creating a new entry for the queue for replacement	
 					node* tempNode = new (nothrow) node;
@@ -296,10 +296,10 @@ int vm_fault(void *addr, bool write_flag){
 		}
 		//there is unused physical memory, then just associate the page with that memory
 		else {
-#ifdef PRINT
-			cerr << "there is extra memory" << endl;
-			cerr << "assigned physical page: " << tempEntry->ppage << endl;
-#endif
+// #ifdef PRINT
+// 			cerr << "there is extra memory" << endl;
+// 			cerr << "assigned physical page: " << tempEntry->ppage << endl;
+// #endif
 			//create a node in the memory
 			node* tempNode = new (nothrow) node;
 
@@ -330,9 +330,9 @@ int vm_fault(void *addr, bool write_flag){
  ***************************************************************************/
 void vm_destroy(){
     
-#ifdef PRINT
-	cerr << "destroying pid: " << CurrentPid << endl;
-#endif
+// #ifdef PRINT
+// 	cerr << "destroying pid: " << CurrentPid << endl;
+// #endif
     
 	//delete page_table_base_register;
 	page_table_base_register = NULL;
@@ -382,12 +382,12 @@ void vm_destroy(){
 	}	
 
 // #ifdef PRINT
-	cerr << "size of disk queue is: " << FreeDiskBlocks.size() << endl;
-	cerr << "size of memory queue is: " << FreePhysMem.size() << endl;
+	// cerr << "size of disk queue is: " << FreeDiskBlocks.size() << endl;
+	// cerr << "size of memory queue is: " << FreePhysMem.size() << endl;
 
-	//delete in disk block
-	cerr << "finished destroying " << CurrentPid << endl;
-	cerr << "============================================" << endl;
+	// //delete in disk block
+	// cerr << "finished destroying " << CurrentPid << endl;
+	// cerr << "============================================" << endl;
 // #endif
     
 }
@@ -419,9 +419,9 @@ void * vm_extend(){
 		return NULL;
 	}
     
-#ifdef PRINT
-	cerr << "returning " << hex << nextLowest << endl;
-#endif
+// #ifdef PRINT
+// 	cerr << "returning " << hex << nextLowest << endl;
+// #endif
 
 	//getting the page that corresponds to the valid address
 	unsigned int validPageNum = nextLowest / VM_PAGESIZE;
@@ -430,9 +430,9 @@ void * vm_extend(){
 	ProcessMap[CurrentPid].lowestValidAddr = nextLowest + VM_PAGESIZE;
 
 	//assign a specific disk block to any page number, and this will ALWAYS stay constant
-#ifdef PRINT
-    cerr << "assiging block " << diskBlock << " to " << validPageNum << " of " << CurrentPid << endl;
-#endif
+// #ifdef PRINT
+//     cerr << "assiging block " << diskBlock << " to " << validPageNum << " of " << CurrentPid << endl;
+// #endif
     
 	vpageinfo* infoP = new (nothrow) vpageinfo;
 	infoP->diskBlock = diskBlock;
