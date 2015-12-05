@@ -1,6 +1,11 @@
-//Test3.10.cc: 
-//Requesting and using 6 pages while there are only 
-//4 pages in memory
+/*****************************************************************************
+ File:   test3.10.cc
+ Author: Adela Yang, Venecia Xu & Son Ngo
+ Date:   Dec 2015
+
+ Memory pages: 4
+ Description: Syslog should not read other pages' data
+******************************************************************************/
 
 #include <iostream>
 #include <stdint.h>
@@ -16,9 +21,6 @@ int main(){
 	d = (char *) vm_extend();
 	e = (char *) vm_extend();
 	f = (char *) vm_extend();
-	//a = (char *) vm_extend();
-	//cout << "test2: get a = " << hex << a << endl;
-	//cout << "test1: get p = " << p << endl;
 
 	a[0] = 'b';
 	b[1] = 'd';
@@ -26,7 +28,6 @@ int main(){
 	d[3] = 'l';
 	e[4] = 'a';
 	f[5] = '!';
-	//a[0] = 'H';
 
 	cout << "c2: " << c[2] << endl;
 
@@ -38,7 +39,6 @@ int main(){
 	a[6] = 'i';
 	a[7] = 'a';
 	vm_syslog(a, 8);
-	//vm_syslog(g, 8);
 	vm_syslog(d, 8);
 	vm_syslog(b, 15);
 	vm_syslog(c, 15);

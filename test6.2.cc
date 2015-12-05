@@ -1,7 +1,11 @@
-//Test5.128.cc: 
-//1 page in memory
-//page should see values of 0 (within valid addresses)
-//make sure to catch invalid addresses
+/*****************************************************************************
+ File:   test6.2.cc
+ Author: Adela Yang, Venecia Xu & Son Ngo
+ Date:   Dec 2015
+
+ Memory pages: 2
+ Description: Trying to syslog at invalid address
+******************************************************************************/
 
 #include <iostream>
 #include <stdint.h>

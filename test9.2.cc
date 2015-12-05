@@ -1,7 +1,11 @@
-//Test13.2.cc: 
-//Should never write out pages of b except for the 1st time
-//since b is never modified after that
-//Check the functionality of zeroFilledBit
+/*****************************************************************************
+ File:   test9.2.cc
+ Author: Adela Yang, Venecia Xu & Son Ngo
+ Date:   Dec 2015
+
+ Memory pages: 2
+ Description: Page b should be written out only 1 time (optimization)
+******************************************************************************/
 
 #include <iostream>
 #include <stdint.h>

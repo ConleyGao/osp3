@@ -1,8 +1,11 @@
-//Test7.2.cc: 
-//2 page in memory
-//length of 9
-//initalizing before extend
+/*****************************************************************************
+ File:   test7.2.cc
+ Author: Adela Yang, Venecia Xu & Son Ngo
+ Date:   Dec 2015
 
+ Memory pages: 2
+ Description: Illegal read to an invalid page (fault should return -1)
+******************************************************************************/
 
 #include <iostream>
 #include <stdint.h>
@@ -11,26 +14,7 @@
 using namespace std;
 
 int main(){
-	char *a = new (nothrow) char;
-	a[0] = 's';
-
-	a = (char *) vm_extend();
-
-	//a[0] = 'm';
-	a[1] = 'e';
-	a[2] = 'r';
-	a[3] = 'p';
-	a[4] = 'a';
-	a[5] = 'd';
-	a[6] = 'e';
-	a[7] = 'r';
-	a[8] = 'p';
-	if (vm_syslog(a, 9) == -1){
-		cout << "syslog for a fails. Buggy pager!" << endl;
-	}
-	else {
-		cout << "syslog for a succeeds" << endl;
-	}
-
-	cout << "Last statement" << endl;
+	char *a = (char*) vm_extend();
+	cout << a[8193] << endl;
+	cout << "This should not be printed out" << endl;
 }

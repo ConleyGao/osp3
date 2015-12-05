@@ -1,10 +1,10 @@
 /*****************************************************************************
- File:   test2.2.cc
+ File:   test4.2.cc
  Author: Adela Yang, Venecia Xu & Son Ngo
  Date:   Dec 2015
 
  Memory pages: 2
- Description: Simple program with no faults (sample program from the instructor)
+ Description: Illegal write to an invalid page (fault should return -1)
 ******************************************************************************/
 
 #include <iostream>
@@ -14,15 +14,7 @@
 using namespace std;
 
 int main(){
-	char *p; 
-	p = (char *) vm_extend();
-
-	p[0] = 'h';
-	p[1] = 'e';
-	p[2] = 'l';
-	p[3] = 'l';
-	p[4] = 'o';
-	vm_syslog(p, 5);
-
-	cout << "Adela is awesome" << endl;
+	char *a = (char*) vm_extend();
+	a[8193] = 't';
+	cout << "This should not be printed out" << endl;
 }

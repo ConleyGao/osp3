@@ -85,7 +85,7 @@ static unsigned int DiskSize;
 
 //pair of data structurs for physical memory
 map <unsigned int, node*> PhysMemMap;
-map <pid_t, map<unsigned int, vpageinfo* > > DiskBlockMap;
+map <pid_t, map<unsigned int, vpageinfo* > > AllPagesMap;
 map <unsigned int, vpageinfo*>* currMapP;
 
 map <pid_t, process> ProcessMap;		//combining the above 2 maps
@@ -188,7 +188,7 @@ void vm_switch(pid_t pid){
 	page_table_base_register = ProcessMap[CurrentPid].pageTableP;
 
 	//point to the current map of virtual pages of the current process
-	currMapP = &(DiskBlockMap[CurrentPid]);
+	currMapP = &(AllPagesMap[CurrentPid]);
 	
 }
 
@@ -221,8 +221,8 @@ int vm_fault(void *addr, bool write_flag){
 	unsigned int pageNumber = virtualAddr / VM_PAGESIZE;
 	page_table_entry_t* tempEntry = &(page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE]);
     
-	//create a pointer that points to faulted page entry in DiskBlockMap
-	//map<unsigned int, vpageinfo*>* faultP = DiskBlockMap
+	//create a pointer that points to faulted page entry in AllPagesMap
+	//map<unsigned int, vpageinfo*>* faultP = AllPagesMap
 
 // #ifdef PRINT
 //     cerr << "virtual page number: " << hex << pageNumber << endl;
@@ -257,8 +257,8 @@ int vm_fault(void *addr, bool write_flag){
 
 					//updating residency of evicted page to false
 
-					//pointer to the evicted page in DiskBlockMap
-					vpageinfo* evictedP = (DiskBlockMap[curr->pid])[curr->vPage];
+					//pointer to the evicted page in AllPagesMap
+					vpageinfo* evictedP = (AllPagesMap[curr->pid])[curr->vPage];
 
 					evictedP->resident = false;
 
@@ -357,7 +357,7 @@ void vm_destroy(){
 
 	//delete in physical memory, push back physical pages to free memory list
 	//push free blocks that are associated with virtual pages being destroyed
-	//to reduce the traverse time in DiskBlockMap to free the rest of the blocks
+	//to reduce the traverse time in AllPagesMap to free the rest of the blocks
 	unsigned int ppageDelete;
 	unsigned int vpageDelete;
 	for (it = PhysMemMap.begin(); it != PhysMemMap.end(); ){
@@ -437,7 +437,7 @@ void * vm_extend(){
 	vpageinfo* infoP = new (nothrow) vpageinfo;
 	infoP->diskBlock = diskBlock;
 	infoP->zeroFilledbit = 0;
-	DiskBlockMap[CurrentPid][validPageNum] = infoP;
+	AllPagesMap[CurrentPid][validPageNum] = infoP;
 
 	return (void*)nextLowest;
 }
@@ -469,15 +469,15 @@ int vm_syslog(void *message, unsigned int len){
 		//translating from virtual address to physical address
 		vpageNumber = currAddr / VM_PAGESIZE;
 		tempEntry = &(page_table_base_register->ptes[vpageNumber - VM_ARENA_BASEPAGE]);
-		if (!resident(vpageNumber)){
+		if (!resident(vpageNumber) || tempEntry->read_enable == 0){
 			// cerr << "i'm not resident" << endl;
 			if (vm_fault((void*)currAddr, false) == FAILURE){
 				return FAILURE;
 			}
 		}
-		if (!resident(vpageNumber)){
-			return FAILURE;
-		}
+		// if (!resident(vpageNumber)){
+		// 	return FAILURE;
+		// }
 		// cerr << "vpageNumber = " << vpageNumber << endl;
 		pageOffSet = currAddr % VM_PAGESIZE;
 
@@ -501,6 +501,19 @@ int vm_syslog(void *message, unsigned int len){
 	UTILITY FUNCTIONS
  ***************************************************************************/
 
+/***************************************************************************
+ Function: updateInfo
+ Inputs:   6 inputs
+ 	pointer to node struct
+ 	pointer to page_table_entry_t
+ 	vpage Number
+ 	ppage Number
+ 	flag for action
+ 	write flag
+ Returns:  correctly update the info of a page (the bits & ppage)
+ Description:
+	
+ ***************************************************************************/
 void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpage, unsigned int ppage, unsigned int flag, bool write_flag){
 	if (flag == RESIDENT_FLAG){
 		tempEntry->read_enable = 1;
@@ -623,7 +636,7 @@ int nextAvailableDiskBlock(){
 	
  ***************************************************************************/
 bool resident(unsigned int vPage){
-	return (DiskBlockMap[CurrentPid])[vPage]->resident;
+	return (AllPagesMap[CurrentPid])[vPage]->resident;
 }
 
 /***************************************************************************

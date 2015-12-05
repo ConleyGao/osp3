@@ -1,7 +1,11 @@
-//Test9.128.cc: 
-//128 page in memory
-//Description: check for enough disk blocks condition
+/*****************************************************************************
+ File:   test8.128.cc
+ Author: Adela Yang, Venecia Xu & Son Ngo
+ Date:   Dec 2015
 
+ Memory pages: 128
+ Description: Trying to extend more than available disk blocks
+******************************************************************************/
 
 #include <iostream>
 #include <stdint.h>

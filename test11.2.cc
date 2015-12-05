@@ -1,5 +1,11 @@
-//Test11.2.cc: 
-//Only 2 memory pages --> a lot of page fault
+/*****************************************************************************
+ File:   test11.2.cc
+ Author: Adela Yang, Venecia Xu & Son Ngo
+ Date:   Dec 2015
+
+ Memory pages: 2
+ Description: Incurs a lot of page faults
+******************************************************************************/
 
 #include <iostream>
 #include <stdint.h>
@@ -43,6 +49,4 @@ int main(){
 	vm_syslog(a, 15);
 
 	cout << "c2(2): " << c[2] << endl;
-
-	cout << "Good bye world." << endl;
 }

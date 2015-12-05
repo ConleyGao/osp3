@@ -1,7 +1,12 @@
-//Test12.2.cc: 
-//Should never have to read pages from block for b
-//since b has never been modified (i.e never written)
-//out to disk
+/*****************************************************************************
+ File:   test12.2.cc
+ Author: Adela Yang, Venecia Xu & Son Ngo
+ Date:   Dec 2015
+
+ Memory pages: 2
+ Description: Pages pointed to by b should never be written out 
+ 				(thus never read from disk)
+******************************************************************************/
 
 #include <iostream>
 #include <stdint.h>
@@ -16,7 +21,6 @@ int main(){
 	c = (char *) vm_extend();
 
 	a[0] = 'b';
-
 	c[2] = 'e';
 
 	vm_syslog(b,2);
@@ -53,6 +57,4 @@ int main(){
 	vm_syslog(a, 15);
 
 	cout << "c2(2): " << c[2] << endl;
-
-	cout << "Good bye world." << endl;
 }

@@ -1,5 +1,11 @@
-//Test14.2.cc: 
-//Test random yields
+/*****************************************************************************
+ File:   test10.128.cc
+ Author: Adela Yang, Venecia Xu & Son Ngo
+ Date:   Dec 2015
+
+ Memory pages: 128
+ Description: Similar to test9.2.cc but with arbitrary yield statements
+******************************************************************************/
 
 #include <iostream>
 #include <stdint.h>

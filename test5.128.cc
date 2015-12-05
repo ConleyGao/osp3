@@ -1,8 +1,11 @@
-//Test5.128.cc: 
-//128 pages in memory
-//test message with length of 0
-//test whether syslog bring things to memory
-//and make sure
+/*****************************************************************************
+ File:   test5.128.cc
+ Author: Adela Yang, Venecia Xu & Son Ngo
+ Date:   Dec 2015
+
+ Memory pages: 2
+ Description: Simple program to make sure pointer assignment works
+******************************************************************************/
 
 #include <iostream>
 #include <stdint.h>

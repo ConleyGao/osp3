@@ -1,9 +1,13 @@
-//Test8.4.cc: 
-//128 pages in memory
-//test message with length of 0
-//test whether syslog bring things to memory
-//and make sure b saves the address in a
+/*****************************************************************************
+ File:   test1.4.cc
+ Author: Adela Yang, Venecia Xu & Son Ngo
+ Date:   Dec 2015
 
+ Memory pages: 128
+ Description: Simple program to check the functionality of syslog, and pages
+ 	should see 0 for unmodified addresses
+ 		Also syslog should return -1 when len = 0
+******************************************************************************/
 
 #include <iostream>
 #include <stdint.h>
@@ -28,14 +32,14 @@ int main(){
 	a[7] = 'r';
 	a[8] = 'p';
 
-	if (vm_syslog(b, 10) == -1){
+	if (vm_syslog(b, 1) == -1){
 		cout << "syslog at b fails" << endl;
 	}
 	else {
 		cout << "syslog at b succeeds" << endl;
 	}	
 
-	if (vm_syslog(a, 10) == -1){
+	if (vm_syslog(a, 0) == -1){
 		cout << "syslog at a fails" << endl;
 	}
 	else {
