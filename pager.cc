@@ -250,7 +250,7 @@ int vm_fault(void *addr, bool write_flag){
 
 				if (curr->refBit == 0){
 					int evictedPage = curr->pageTableEntryP->ppage;
-					cout << evictedPage;
+					// cout << evictedPage;
 					// cerr << "evicting physical page: " << evictedPage << endl;
 
 					//evicting the page of curr so set both read and write to 0
@@ -341,15 +341,10 @@ void vm_destroy(){
 // #ifdef PRINT
 // 	cerr << "destroying pid: " << CurrentPid << endl;
 // #endif
-    
-	//delete page_table_base_register;
-	page_table_base_register = NULL;
 
+	//delete entry in ProcessMap
+	delete ProcessMap[CurrentPid].pageTableP; 
 	ProcessMap.erase(CurrentPid);
-
-	map<unsigned int, node*>::iterator it = PhysMemMap.begin();
-
-	vpageinfo* vPageP = new (nothrow) vpageinfo;
 
 	//remove from ClockQueue
 	node* toDelete = new (nothrow) node;
@@ -367,8 +362,11 @@ void vm_destroy(){
 	//delete in physical memory, push back physical pages to free memory list
 	//push free blocks that are associated with virtual pages being destroyed
 	//to reduce the traverse time in AllPagesMap to free the rest of the blocks
+	map<unsigned int, node*>::iterator it = PhysMemMap.begin();
+	vpageinfo* vPageP = new (nothrow) vpageinfo;
 	unsigned int ppageDelete;
 	unsigned int vpageDelete;
+
 	for (it = PhysMemMap.begin(); it != PhysMemMap.end(); ){
 		toDelete = it->second;
 		vpageDelete = toDelete->vPage;
@@ -379,6 +377,10 @@ void vm_destroy(){
 			FreeDiskBlocks.push(vPageP->diskBlock);
 			FreePhysMem.push(ppageDelete);
 			(*CurrMapP).erase(vpageDelete);
+
+			delete toDelete->pageTableEntryP;
+			delete toDelete;
+
 			PhysMemMap.erase(it++);
 		}
 		else {
@@ -386,10 +388,17 @@ void vm_destroy(){
 		}
 	}
 
-	//free the rest of the blocks associated with non-resident virtual pages
+	delete vPageP;
+
+	//free the rest of the blocks associated with non-resident virtual 
+	//pages by going through the AllPagesMap
 	for (map<unsigned int, vpageinfo*  >::iterator mapIt = (*CurrMapP).begin(); mapIt != (*CurrMapP).end(); ++mapIt){
 		FreeDiskBlocks.push((mapIt->second)->diskBlock);
-	}	
+	}
+
+	//delete page_table_base_register;
+	page_table_base_register = NULL;
+	CurrMapP = NULL;	
 
 // #ifdef PRINT
 	// cerr << "size of disk queue is: " << FreeDiskBlocks.size() << endl;
@@ -524,19 +533,11 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpag
 
 	if (flag == RESIDENT_FLAG){
 		tempEntry->read_enable = 1;
-		//new version - 00011 turns to 11111 even with only read
 		if (write_flag == true || tempNode->modBit == 1){
 			tempEntry->write_enable = 1;
 			tempNode->modBit = 1;
 			(*CurrMapP)[tempNode->vPage]->zeroFilledbit = 1;
 		}
-
-		//old version - 00011 turns to 10111 with only read
-		// if (write_flag == true){
-		// 	tempEntry->write_enable = 1;
-		// 	tempNode->modBit = 1;
-		// 	(*currMapP)[tempNode->vPage]->zeroFilledbit = 1;
-		// }
 		tempNode->refBit = 1;
 	}
 	else if (flag == ASSOCIATION_FLAG){
