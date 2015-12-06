@@ -288,11 +288,15 @@ int vm_fault(void *addr, bool write_flag){
 					node* tempNode = new (nothrow) node;
 
 					updateInfo(tempNode, tempEntry, pageNumber, evictedPage, CLOCK_EVICTED_FLAG, write_flag);
+					
+					//updating queue and physical memory map
+					ClockQueue.push(tempNode);
 
 					break;
 				}
 				else {
 					updateInfo(curr, NULL, 0, 0, CLOCK_NOT_EVICTED_FLAG, write_flag);
+					ClockQueue.push(curr);
 				}
 			}
 		}
@@ -306,6 +310,9 @@ int vm_fault(void *addr, bool write_flag){
 			node* tempNode = new (nothrow) node;
 
 			updateInfo(tempNode, tempEntry, pageNumber, nextPhysMem, ASSOCIATION_FLAG, write_flag);
+			
+			//stick the node to the end of clock queue
+			ClockQueue.push(tempNode);
 
 		}
 	}
@@ -441,6 +448,7 @@ void * vm_extend(){
 	vpageinfo* infoP = new (nothrow) vpageinfo;
 	infoP->diskBlock = diskBlock;
 	infoP->zeroFilledbit = 0;
+	infoP->resident = false;
 	AllPagesMap[CurrentPid][validPageNum] = infoP;
 
 	return (void*)nextLowest;
@@ -553,8 +561,8 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpag
 		//zero fill because trying to read (what abour writing?)
 		zeroFill(ppage);
 
-		//stick the node to the end of clock queue
-		ClockQueue.push(tempNode);
+		// //stick the node to the end of clock queue
+		// ClockQueue.push(tempNode);
 
 		//update to true for page in memory
 		(*CurrMapP)[vpage]->resident = true;
@@ -566,7 +574,7 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpag
 		tempNode->refBit = 0;
 		tempNode->pageTableEntryP->read_enable = 0;
 		tempNode->pageTableEntryP->write_enable = 0;
-		ClockQueue.push(tempNode);
+		//ClockQueue.push(tempNode);
 	}
 	else if (flag == CLOCK_EVICTED_FLAG){
 		tempEntry->ppage = ppage;
@@ -587,8 +595,8 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpag
 			tempNode->modBit = 0;
 		}
 
-		//updating queue and physical memory map
-		ClockQueue.push(tempNode);
+		// //updating queue and physical memory map
+		// ClockQueue.push(tempNode);
 
 		//update residency of page being put to memory to true
 		(*CurrMapP)[vpage]->resident = true;
