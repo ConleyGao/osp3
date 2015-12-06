@@ -463,7 +463,7 @@ int vm_syslog(void *message, unsigned int len){
 	unsigned int vpageNumber = 0;
 	unsigned int pageOffSet = 0;
 	page_table_entry_t* tempEntry = new page_table_entry_t;
-	int pAddr = 0;
+	unsigned long pAddr = 0;
 
 	for (unsigned long i = 0; i < len; i++){
 		//translating from virtual address to physical address
@@ -475,18 +475,12 @@ int vm_syslog(void *message, unsigned int len){
 				return FAILURE;
 			}
 		}
-		// if (!resident(vpageNumber)){
-		// 	return FAILURE;
-		// }
-		// cerr << "vpageNumber = " << vpageNumber << endl;
 		pageOffSet = currAddr % VM_PAGESIZE;
 
 		pAddr = tempEntry->ppage * VM_PAGESIZE;
 
-		//constructing the string
-		//s += string(1,((char*)pm_physmem)[pAddr + pageOffSet]);
-
 		s.append(1, ((char*)pm_physmem)[pAddr + pageOffSet]);
+
 		//going to the next bytes (address)
 		++currAddr;
 	}	
@@ -517,12 +511,21 @@ int vm_syslog(void *message, unsigned int len){
 void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpage, unsigned int ppage, unsigned int flag, bool write_flag){
 	if (flag == RESIDENT_FLAG){
 		tempEntry->read_enable = 1;
-		tempNode->refBit = 1;
-		if (write_flag == true){
+
+		//new version - 00011 turns to 11111 even with only read
+		if (write_flag == true || tempNode->modBit == 1){
 			tempEntry->write_enable = 1;
 			tempNode->modBit = 1;
 			(*currMapP)[tempNode->vPage]->zeroFilledbit = 1;
 		}
+
+		//old version - 00011 turns to 10111 with only read
+		// if (write_flag == true){
+		// 	tempEntry->write_enable = 1;
+		// 	tempNode->modBit = 1;
+		// 	(*currMapP)[tempNode->vPage]->zeroFilledbit = 1;
+		// }
+		tempNode->refBit = 1;
 	}
 	else if (flag == ASSOCIATION_FLAG){
 		//create a node in the memory
