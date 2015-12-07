@@ -225,9 +225,9 @@ int vm_fault(void *addr, bool write_flag){
 	//map<unsigned int, vpageinfo*>* faultP = AllPagesMap
 
 // #ifdef PRINT
-//     cerr << "virtual page number: " << hex << pageNumber << endl;
-// 	cerr << "what I am looking at " << tempEntry << endl;
-// 	cerr << "physical page number: " << hex << tempEntry->ppage << endl;
+	//  cerr << "virtual page number: " << hex << pageNumber << endl;
+	// 	cerr << "what I am looking at " << tempEntry << endl;
+	// 	cerr << "physical page number: " << hex << tempEntry->ppage << endl;
 // #endif
 
 	int nextPhysMem = 0;
@@ -250,7 +250,7 @@ int vm_fault(void *addr, bool write_flag){
 
 				if (curr->refBit == 0){
 					int evictedPage = curr->pageTableEntryP->ppage;
-					// cout << evictedPage;
+					// cerr << evictedPage;
 					// cerr << "evicting physical page: " << evictedPage << endl;
 
 					//evicting the page of curr so set both read and write to 0
@@ -342,9 +342,7 @@ void vm_destroy(){
 // 	cerr << "destroying pid: " << CurrentPid << endl;
 // #endif
 
-	//delete entry in ProcessMap
-	delete ProcessMap[CurrentPid].pageTableP; 
-	ProcessMap.erase(CurrentPid);
+	//cerr << "here" << endl;
 
 	//remove from ClockQueue
 	node* toDelete = new (nothrow) node;
@@ -359,6 +357,8 @@ void vm_destroy(){
 		}
 	}
 
+	//cerr << "here2" << endl;
+
 	//delete in physical memory, push back physical pages to free memory list
 	//push free blocks that are associated with virtual pages being destroyed
 	//to reduce the traverse time in AllPagesMap to free the rest of the blocks
@@ -369,32 +369,55 @@ void vm_destroy(){
 
 	for (it = PhysMemMap.begin(); it != PhysMemMap.end(); ){
 		toDelete = it->second;
-		vpageDelete = toDelete->vPage;
-		vPageP = (*CurrMapP)[vpageDelete];
 
 		if (toDelete->pid == CurrentPid){
+
+			//cerr << "here3a" << endl;
+			vpageDelete = toDelete->vPage;
+
+			//cerr << "here3b" << endl;
+			vPageP = (*CurrMapP)[vpageDelete];
+
+			//cerr << "here3c" << endl;
+
 			ppageDelete = toDelete->pageTableEntryP->ppage;
+			//cerr << "here3d" << endl;
 			FreeDiskBlocks.push(vPageP->diskBlock);
+			//cerr << "here3e" << endl;
 			FreePhysMem.push(ppageDelete);
+			//cerr << "here3f" << endl;
 			(*CurrMapP).erase(vpageDelete);
 
-			delete toDelete->pageTableEntryP;
+			//cerr << "here3g" << endl;
+			//delete toDelete->pageTableEntryP;
+			//cerr << "here3h" << endl;
 			delete toDelete;
 
 			PhysMemMap.erase(it++);
+			//cerr << "here3i" << endl;
 		}
 		else {
 			++it;
 		}
 	}
-
+	//cerr << "here4" << endl;
 	delete vPageP;
+	//cerr << "here5" << endl;
 
 	//free the rest of the blocks associated with non-resident virtual 
 	//pages by going through the AllPagesMap
-	for (map<unsigned int, vpageinfo*  >::iterator mapIt = (*CurrMapP).begin(); mapIt != (*CurrMapP).end(); ++mapIt){
+	for (map<unsigned int, vpageinfo*  >::iterator mapIt = (*CurrMapP).begin(); mapIt != (*CurrMapP).end(); ){
 		FreeDiskBlocks.push((mapIt->second)->diskBlock);
+		delete mapIt->second;
+		(*CurrMapP).erase(mapIt++);
 	}
+	//cerr << "here6" << endl;
+
+	//delete entry in ProcessMap
+	delete ProcessMap[CurrentPid].pageTableP; 
+	ProcessMap.erase(CurrentPid);
+
+	//cerr << "here7" << endl;
 
 	//delete page_table_base_register;
 	page_table_base_register = NULL;

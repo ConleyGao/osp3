@@ -3,46 +3,51 @@
  Author: Adela Yang, Venecia Xu & Son Ngo
  Date:   Dec 2015
 
- Memory pages: 2
- Description: Simple program to make sure pointer assignment works
+ Memory pages: 128
+ Description: A small program that should not cause any page fault
+ 	other than the first time writing/reading
 ******************************************************************************/
 
-#include <iostream>
+ 	#include <iostream>
 #include <stdint.h>
 #include "vm_app.h"
 
 using namespace std;
 
 int main(){
-	char *a, *b;
+	char *a, *b, *c, *d, *e, *f; 
 	a = (char *) vm_extend();
-	b = a;
-	a[0] = 's';
+	b = (char *) vm_extend();
+	c = (char *) vm_extend();
+	d = (char *) vm_extend();
+	e = (char *) vm_extend();
+	f = (char *) vm_extend(); 
 
-	a = (char *) vm_extend();
-	a[0] = 'm';
-	a[1] = 'e';
-	a[2] = 'r';
-	a[3] = 'p';
-	a[4] = 'a';
-	a[5] = 'd';
-	a[6] = 'e';
-	a[7] = 'r';
-	a[8] = 'p';
+	a[0] = 'b';
+	b[1] = 'd';
+	c[2] = 'e';
+	d[3] = 'l';
+	e[4] = 'a';
+	f[5] = '!';
 
-	if (vm_syslog(b, 1) == -1){
-		cout << "syslog at b fails" << endl;
-	}
-	else {
-		cout << "syslog at b succeeds" << endl;
-	}	
+	cout << "c2: " << c[2] << endl;
 
-	if (vm_syslog(a, 0) == -1){
-		cout << "syslog at a fails" << endl;
-	}
-	else {
-		cout << "syslog at a succeeds" << endl;
-	}	
+	a[1] = 'v';
+	a[2] = 'e';
+	a[3] = 'n';
+	a[4] = 'e';
+	a[5] = 'c';
+	a[6] = 'i';
+	a[7] = 'a';
 	
-	cout << "Last statement" << endl;
+	vm_syslog(a, 8);
+	vm_syslog(d, 8);
+	vm_syslog(b, 15);
+	vm_syslog(c, 15);
+	vm_syslog(d, 15);
+	vm_syslog(e, 15);
+	vm_syslog(f, 15);
+	vm_syslog(a, 15);
+
+	cout << "c2(2): " << c[2] << endl;
 }
