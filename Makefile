@@ -2,7 +2,7 @@ CC = /usr/bin/g++
 CFLAGS = -Wall
 LDFLAGS = -m64 -lc -arch x86_64
 
-tests: test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test13 test14
+tests: test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test13 test14 test15 test16
 
 pager:
 	$(CC) $(CFLAGS) -o pager pager.cc libvm_pager.a -ldl
@@ -38,8 +38,12 @@ test13:
 	$(CC) $(CFLAGS) -o test13 test13.2.cc libvm_app.a -ldl
 test14:
 	$(CC) $(CFLAGS) -o test14 test14.2.cc libvm_app.a -ldl
+test15:
+	$(CC) $(CFLAGS) -o test15 test15.2.cc libvm_app.a -ldl
+test16:
+	$(CC) $(CFLAGS) -o test16 test16.2.cc libvm_app.a -ldl
 
 cleanPager:
 	$(RM) pager
 cleanTests:
-	$(RM) test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test13 test14
+	$(RM) test1 test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test13 test14 test15 test16

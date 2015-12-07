@@ -7,6 +7,7 @@
  Description: Simple program to check the functionality of syslog, and pages
  	should see 0 for unmodified addresses
  		Also syslog should return -1 when len = 0
+ 		Multiple syslogs should print correctly when writing to pages
 ******************************************************************************/
 
 #include <iostream>
@@ -21,7 +22,12 @@ int main(){
 	b = a;
 	a[0] = 's';
 
+	vm_syslog(a, 9);
+
 	a = (char *) vm_extend();
+
+	vm_syslog(a, 9);
+
 	a[0] = 'm';
 	a[1] = 'e';
 	a[2] = 'r';
@@ -31,6 +37,8 @@ int main(){
 	a[6] = 'e';
 	a[7] = 'r';
 	a[8] = 'p';
+
+	vm_syslog(a,9);
 
 	if (vm_syslog(b, 1) == -1){
 		cout << "syslog at b fails" << endl;

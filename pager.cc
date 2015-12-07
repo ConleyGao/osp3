@@ -46,13 +46,16 @@
 /* constants */
 static const int FAILURE = -1;
 static const int SUCCESS = 0;
-static const unsigned long INVALID = 0x50000000;
 static const int NO_VALUE = -1;
-static const unsigned int PAGE_TABLE_SIZE = ((unsigned long)VM_ARENA_BASEADDR + VM_ARENA_SIZE)/VM_PAGESIZE - VM_ARENA_BASEPAGE;
+static const unsigned long INVALID = 0x50000000;
+static const unsigned long VM_ARENA_MAXADDR = (unsigned long)VM_ARENA_BASEADDR + VM_PAGESIZE;
+static const unsigned long VM_ARENA_MAXPAGE = (unsigned long)VM_ARENA_BASEADDR + VM_ARENA_SIZE;
+static const unsigned int PAGE_TABLE_SIZE = VM_ARENA_MAXPAGE/VM_PAGESIZE - VM_ARENA_BASEPAGE;
 static const unsigned int RESIDENT_FLAG = 1;
 static const unsigned int ASSOCIATION_FLAG = 2;
 static const unsigned int CLOCK_NOT_EVICTED_FLAG = 3;
 static const unsigned int CLOCK_EVICTED_FLAG = 4;
+
 
 using namespace std;
 
@@ -498,17 +501,9 @@ void * vm_extend(){
 int vm_syslog(void *message, unsigned int len){
 
 	unsigned long currAddr = (intptr_t) message;
-
-	// long currAddr = (intptr_t) message;
-
-	// if (currAddr >= 0){
-	// 	return FAILURE;
-	// }
-
-	// cerr << "current lowest valid addr " << hex << ProcessMap[CurrentPid].lowestValidAddr << endl;
-	// cerr << "trying to have: " << hex << currAddr + len << endl;
     
-	if (currAddr + len > ProcessMap[CurrentPid].lowestValidAddr || len <= 0){
+	if (currAddr + len > ProcessMap[CurrentPid].lowestValidAddr || len <= 0 
+		|| !((currAddr >= (unsigned long)VM_ARENA_BASEADDR) && (currAddr <= VM_ARENA_MAXADDR))){
 		return FAILURE;
 	}
 
@@ -523,7 +518,6 @@ int vm_syslog(void *message, unsigned int len){
 		vpageNumber = currAddr / VM_PAGESIZE;
 		tempEntry = &(page_table_base_register->ptes[vpageNumber - VM_ARENA_BASEPAGE]);
 		if (!resident(vpageNumber) || tempEntry->read_enable == 0){
-			// cerr << "i'm not resident" << endl;
 			if (vm_fault((void*)currAddr, false) == FAILURE){
 				return FAILURE;
 			}
