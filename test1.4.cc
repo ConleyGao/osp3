@@ -36,14 +36,21 @@ int main(){
 		cout << "syslog at b fails" << endl;
 	}
 	else {
-		cout << "syslog at b succeeds" << endl;
+		cout << "syslog at b succeeds. Buggy pager!" << endl;
 	}	
 
 	if (vm_syslog(a, 0) == -1){
 		cout << "syslog at a fails" << endl;
 	}
 	else {
-		cout << "syslog at a succeeds" << endl;
+		cout << "syslog at a succeeds. Buggy pager!" << endl;
+	}
+
+	if (vm_syslog(a, -1) == -1){
+		cout << "syslog at a fails" << endl;
+	}
+	else {
+		cout << "syslog at a succeeds. Buggy pager!" << endl;
 	}	
 	
 	cout << "Last statement" << endl;
