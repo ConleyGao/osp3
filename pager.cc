@@ -498,8 +498,17 @@ void * vm_extend(){
 int vm_syslog(void *message, unsigned int len){
 
 	unsigned long currAddr = (intptr_t) message;
+
+	// long currAddr = (intptr_t) message;
+
+	// if (currAddr >= 0){
+	// 	return FAILURE;
+	// }
+
+	// cerr << "current lowest valid addr " << hex << ProcessMap[CurrentPid].lowestValidAddr << endl;
+	// cerr << "trying to have: " << hex << currAddr + len << endl;
     
-	if (currAddr + len > ProcessMap[CurrentPid].lowestValidAddr || len == 0){
+	if (currAddr + len > ProcessMap[CurrentPid].lowestValidAddr || len <= 0){
 		return FAILURE;
 	}
 
