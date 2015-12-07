@@ -126,12 +126,9 @@ void vm_init(unsigned int memory_pages, unsigned int disk_blocks){
 	//saving to global variables
 	PhysicalMemSize = memory_pages;
 	DiskSize = disk_blocks;
-// #ifdef PRINT
-// 	cerr << "Number of disk blocks: " << DiskSize << endl;
-// #endif
+
 	//initializing free physical memory list
 	for (unsigned int i = 0; i < PhysicalMemSize; i++){
-		// cerr << "pushing " << i << " to memory free" << endl;
 		FreePhysMem.push(i);
 	}
 
@@ -212,10 +209,6 @@ int vm_fault(void *addr, bool write_flag){
 
 	unsigned long virtualAddr = (intptr_t) addr;
     
-// #ifdef PRINT
-// 	cerr << "virtual address: " << virtualAddr << endl;
-// #endif
-
 	if (virtualAddr >= ProcessMap[CurrentPid].lowestValidAddr){
 		return FAILURE;
 	}
@@ -223,38 +216,21 @@ int vm_fault(void *addr, bool write_flag){
 	//calculating page number associated with virtual address
 	unsigned int pageNumber = virtualAddr / VM_PAGESIZE;
 	page_table_entry_t* tempEntry = &(page_table_base_register->ptes[pageNumber - VM_ARENA_BASEPAGE]);
-    
-	//create a pointer that points to faulted page entry in AllPagesMap
-	//map<unsigned int, vpageinfo*>* faultP = AllPagesMap
-
-// #ifdef PRINT
-	//  cerr << "virtual page number: " << hex << pageNumber << endl;
-	// 	cerr << "what I am looking at " << tempEntry << endl;
-	// 	cerr << "physical page number: " << hex << tempEntry->ppage << endl;
-// #endif
 
 	int nextPhysMem = 0;
 	//if the page is not in resident (i.e not in physical memory)
 	if (!resident(pageNumber)){
 		nextPhysMem = nextAvailablePhysMem();
         
-// #ifdef PRINT
-//         cerr << "not resident" << endl;
-// 		cerr << "next availabe physical memory is: " << nextPhysMem << endl;
-// #endif
-        
 		//there is no free physical memory, so have to run second-chance clock
 		//algorithm to evict active pages
 		if (nextPhysMem == NO_VALUE){
 			while (true){
-				// cerr << "size of queue: " << ClockQueue.size() << endl;
 				node* curr = ClockQueue.front();
 				ClockQueue.pop();	
 
 				if (curr->refBit == 0){
 					int evictedPage = curr->pageTableEntryP->ppage;
-					// cerr << evictedPage;
-					// cerr << "evicting physical page: " << evictedPage << endl;
 
 					//evicting the page of curr so set both read and write to 0
 					curr->pageTableEntryP->read_enable = 0;
@@ -285,8 +261,6 @@ int vm_fault(void *addr, bool write_flag){
 						disk_read((*CurrMapP)[pageNumber]->diskBlock, evictedPage);
 					}
 				
-					//cerr << "Page " << hex << curr->vPage << " of process " << curr->pid << " evicted" << endl;
-
 					//creating a new entry for the queue for replacement	
 					node* tempNode = new (nothrow) node;
 
@@ -305,10 +279,7 @@ int vm_fault(void *addr, bool write_flag){
 		}
 		//there is unused physical memory, then just associate the page with that memory
 		else {
-// #ifdef PRINT
-// 			cerr << "there is extra memory" << endl;
-// 			cerr << "assigned physical page: " << tempEntry->ppage << endl;
-// #endif
+
 			//create a node in the memory
 			node* tempNode = new (nothrow) node;
 
@@ -340,12 +311,6 @@ int vm_fault(void *addr, bool write_flag){
  	        physical pages released should be put back on the free list
  ***************************************************************************/
 void vm_destroy(){
-    
-// #ifdef PRINT
-// 	cerr << "destroying pid: " << CurrentPid << endl;
-// #endif
-
-	//cerr << "here" << endl;
 
 	//remove from ClockQueue
 	node* toDelete = new (nothrow) node;
@@ -360,8 +325,6 @@ void vm_destroy(){
 		}
 	}
 
-	//cerr << "here2" << endl;
-
 	//delete in physical memory, push back physical pages to free memory list
 	//push free blocks that are associated with virtual pages being destroyed
 	//to reduce the traverse time in AllPagesMap to free the rest of the blocks
@@ -374,38 +337,20 @@ void vm_destroy(){
 		toDelete = it->second;
 
 		if (toDelete->pid == CurrentPid){
-
-			//cerr << "here3a" << endl;
 			vpageDelete = toDelete->vPage;
-
-			//cerr << "here3b" << endl;
 			vPageP = (*CurrMapP)[vpageDelete];
-
-			//cerr << "here3c" << endl;
-
 			ppageDelete = toDelete->pageTableEntryP->ppage;
-			//cerr << "here3d" << endl;
 			FreeDiskBlocks.push(vPageP->diskBlock);
-			//cerr << "here3e" << endl;
 			FreePhysMem.push(ppageDelete);
-			//cerr << "here3f" << endl;
 			(*CurrMapP).erase(vpageDelete);
-
-			//cerr << "here3g" << endl;
-			//delete toDelete->pageTableEntryP;
-			//cerr << "here3h" << endl;
 			delete toDelete;
-
 			PhysMemMap.erase(it++);
-			//cerr << "here3i" << endl;
 		}
 		else {
 			++it;
 		}
 	}
-	//cerr << "here4" << endl;
 	delete vPageP;
-	//cerr << "here5" << endl;
 
 	//free the rest of the blocks associated with non-resident virtual 
 	//pages by going through the AllPagesMap
@@ -414,27 +359,14 @@ void vm_destroy(){
 		delete mapIt->second;
 		(*CurrMapP).erase(mapIt++);
 	}
-	//cerr << "here6" << endl;
 
 	//delete entry in ProcessMap
 	delete ProcessMap[CurrentPid].pageTableP; 
 	ProcessMap.erase(CurrentPid);
 
-	//cerr << "here7" << endl;
-
 	//delete page_table_base_register;
 	page_table_base_register = NULL;
-	CurrMapP = NULL;	
-
-// #ifdef PRINT
-	// cerr << "size of disk queue is: " << FreeDiskBlocks.size() << endl;
-	// cerr << "size of memory queue is: " << FreePhysMem.size() << endl;
-
-	// //delete in disk block
-	// cerr << "finished destroying " << CurrentPid << endl;
-	// cerr << "============================================" << endl;
-// #endif
-    
+	CurrMapP = NULL;
 }
 
 /***************************************************************************
@@ -464,10 +396,6 @@ void * vm_extend(){
 	else if (nextLowest == (unsigned long)VM_ARENA_BASEADDR + VM_ARENA_SIZE){ 
 		return NULL;
 	}
-    
-// #ifdef PRINT
-// 	cerr << "returning " << hex << nextLowest << endl;
-// #endif
 
 	//getting the page that corresponds to the valid address
 	unsigned int validPageNum = nextLowest / VM_PAGESIZE;
@@ -476,10 +404,6 @@ void * vm_extend(){
 	ProcessMap[CurrentPid].lowestValidAddr = nextLowest + VM_PAGESIZE;
 
 	//assign a specific disk block to any page number, and this will ALWAYS stay constant
-// #ifdef PRINT
-//     cerr << "assiging block " << diskBlock << " to " << validPageNum << " of " << CurrentPid << endl;
-// #endif
-    
 	vpageinfo* infoP = new (nothrow) vpageinfo;
 	infoP->diskBlock = diskBlock;
 	infoP->zeroFilledbit = 0;
@@ -582,14 +506,10 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpag
 
 		tempNode->vPage = vpage;
 		tempNode->pid = CurrentPid;
-		//tempNode->diskBlock = (*currMapP)[vpage]->diskBlock;
 		tempNode->pageTableEntryP = tempEntry;
 
 		//zero fill because trying to read (what abour writing?)
 		zeroFill(ppage);
-
-		// //stick the node to the end of clock queue
-		// ClockQueue.push(tempNode);
 
 		//update to true for page in memory
 		(*CurrMapP)[vpage]->resident = true;
@@ -601,7 +521,6 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpag
 		tempNode->refBit = 0;
 		tempNode->pageTableEntryP->read_enable = 0;
 		tempNode->pageTableEntryP->write_enable = 0;
-		//ClockQueue.push(tempNode);
 	}
 	else if (flag == CLOCK_EVICTED_FLAG){
 		tempEntry->ppage = ppage;
@@ -621,9 +540,6 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpag
 			tempEntry->read_enable = 1;
 			tempNode->modBit = 0;
 		}
-
-		// //updating queue and physical memory map
-		// ClockQueue.push(tempNode);
 
 		//update residency of page being put to memory to true
 		(*CurrMapP)[vpage]->resident = true;
@@ -648,7 +564,6 @@ int nextAvailablePhysMem(){
 	else {
 		int availPhysMem = FreePhysMem.front();
 		FreePhysMem.pop();
-		// cerr << "size of free memory: " << FreePhysMem.size() << endl;
 		return availPhysMem;
 	}
 }
@@ -668,7 +583,6 @@ int nextAvailableDiskBlock(){
 	else {
 		int availDisk = FreeDiskBlocks.front();
 		FreeDiskBlocks.pop();
-		//cerr << "next block returning " << avaiDisk << endl;
 		return availDisk;
 	}
 }
