@@ -48,9 +48,9 @@ static const int FAILURE = -1;
 static const int SUCCESS = 0;
 static const int NO_VALUE = -1;
 static const unsigned long INVALID = 0x50000000;
-static const unsigned long VM_ARENA_MAXADDR = (unsigned long)VM_ARENA_BASEADDR + VM_PAGESIZE;
-static const unsigned long VM_ARENA_MAXPAGE = (unsigned long)VM_ARENA_BASEADDR + VM_ARENA_SIZE;
-static const unsigned int PAGE_TABLE_SIZE = VM_ARENA_MAXPAGE/VM_PAGESIZE - VM_ARENA_BASEPAGE;
+static const unsigned long VM_ARENA_MAXADDR = (unsigned long)VM_ARENA_BASEADDR + VM_ARENA_SIZE;
+static const unsigned int VM_ARENA_MAXPAGE = VM_ARENA_MAXADDR / VM_PAGESIZE;
+static const unsigned int PAGE_TABLE_SIZE = VM_ARENA_MAXPAGE - VM_ARENA_BASEPAGE;
 static const unsigned int RESIDENT_FLAG = 1;
 static const unsigned int ASSOCIATION_FLAG = 2;
 static const unsigned int CLOCK_NOT_EVICTED_FLAG = 3;
@@ -236,11 +236,10 @@ int vm_fault(void *addr, bool write_flag){
 					curr->pageTableEntryP->read_enable = 0;
 					curr->pageTableEntryP->write_enable = 0;
 
-					//updating residency of evicted page to false
-
 					//pointer to the evicted page in AllPagesMap
 					vpageinfo* evictedP = (AllPagesMap[curr->pid])[curr->vPage];
 
+					//updating residency of evicted page to false
 					evictedP->resident = false;
 
 					//write to swap space if the evicted page has been modified				
@@ -364,7 +363,6 @@ void vm_destroy(){
 	delete ProcessMap[CurrentPid].pageTableP; 
 	ProcessMap.erase(CurrentPid);
 
-	//delete page_table_base_register;
 	page_table_base_register = NULL;
 	CurrMapP = NULL;
 }
@@ -425,7 +423,7 @@ void * vm_extend(){
 int vm_syslog(void *message, unsigned int len){
 
 	unsigned long currAddr = (intptr_t) message;
-    
+
 	if (currAddr + len > ProcessMap[CurrentPid].lowestValidAddr || len <= 0 
 		|| !((currAddr >= (unsigned long)VM_ARENA_BASEADDR) && (currAddr <= VM_ARENA_MAXADDR))){
 		return FAILURE;
