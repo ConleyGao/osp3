@@ -4,10 +4,11 @@
  Date:   Dec 2015
 
  Memory pages: 128
- Description: Simple program to check the functionality of syslog, and pages
+ Description: 
+ Simple program to check the functionality of syslog, and pages
  	should see 0 for unmodified addresses
- 		Also syslog should return -1 when len = 0
- 		Multiple syslogs should print correctly when writing to pages
+ Also syslog should return -1 when len = 0
+ Multiple syslogs should print correctly when writing to pages
 ******************************************************************************/
 
 #include <iostream>
@@ -41,10 +42,10 @@ int main(){
 	vm_syslog(a,9);
 
 	if (vm_syslog(b, 1) == -1){
-		cout << "syslog at b fails" << endl;
+		cout << "syslog at b fails.  Buggy pager!" << endl;
 	}
 	else {
-		cout << "syslog at b succeeds. Buggy pager!" << endl;
+		cout << "syslog at b succeeds." << endl;
 	}	
 
 	if (vm_syslog(a, 0) == -1){
@@ -61,5 +62,5 @@ int main(){
 		cout << "syslog at a succeeds. Buggy pager!" << endl;
 	}	
 	
-	cout << "Last statement" << endl;
+	cout << "test 1" << endl;
 }

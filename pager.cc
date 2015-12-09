@@ -1,7 +1,7 @@
 /***************************************************************************
  File:   pager.cc
  Author: Adela Yang and Son Ngo and Venecia Xu
- Date:   Nov 2015
+ Date:   Dec 2015
 
  Description:
 
@@ -18,13 +18,7 @@
 
 	 	g++ -Wall -o test test.<memorypages>.cc libvm_app.a -ldl 
 
-	Then on that same terminal window (of test case), run ./test
-
-	See results and happy debugging...
- 	
- Data Structures:
-
-   
+	Then on that same terminal window (of test case), run ./test   
 ******************************************************************************/
 
 /*****************************************************************************/
@@ -56,7 +50,6 @@ static const unsigned int ASSOCIATION_FLAG = 2;
 static const unsigned int CLOCK_NOT_EVICTED_FLAG = 3;
 static const unsigned int CLOCK_EVICTED_FLAG = 4;
 
-
 using namespace std;
 
 /***************************************************************************/
@@ -84,21 +77,19 @@ typedef struct {
 /* globals variables */
 static pid_t CurrentPid = 0; 					//pid of currently running process
 static unsigned int PhysicalMemSize;			//size of physical memory
-static unsigned int DiskSize;
+static unsigned int DiskSize;					//size of disk
 
-//pair of data structurs for physical memory
 map <unsigned int, node*> PhysMemMap;
 map <pid_t, map<unsigned int, vpageinfo* > > AllPagesMap;
 map <unsigned int, vpageinfo*>* CurrMapP;
-
-map <pid_t, process> ProcessMap;		//combining the above 2 maps
+map <pid_t, process> ProcessMap;		
 
 queue<node*> ClockQueue;
 queue<unsigned int> FreePhysMem;
 queue<unsigned int> FreeDiskBlocks;
 
 /***************************************************************************/
-/* prototypes */
+/* utility functions */
 void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpage, unsigned int ppage, unsigned int flag, bool write_flag);
 int nextAvailablePhysMem();
 int nextAvailableDiskBlock();
@@ -167,7 +158,6 @@ void vm_create(pid_t pid){
 	process proInfo;
 	proInfo.lowestValidAddr = INVALID;
 	proInfo.pageTableP = pointer;
-
 	ProcessMap.insert(pair<pid_t, process> (pid, proInfo));
 }
 
@@ -194,7 +184,7 @@ void vm_switch(pid_t pid){
 
 /***************************************************************************
  Function: vm_fault
- Inputs:   
+ Inputs:   the address of the message and the write flag
  Returns:  0 if successful handling fault, -1 if address to an invalid page
  Description:
 	       response to read or write fault by application
@@ -278,7 +268,6 @@ int vm_fault(void *addr, bool write_flag){
 		}
 		//there is unused physical memory, then just associate the page with that memory
 		else {
-
 			//create a node in the memory
 			node* tempNode = new (nothrow) node;
 
@@ -349,6 +338,7 @@ void vm_destroy(){
 			++it;
 		}
 	}
+
 	delete vPageP;
 
 	//free the rest of the blocks associated with non-resident virtual 
@@ -377,6 +367,7 @@ void vm_destroy(){
 		   each byte of a newly extended virtual page initialized with value 0
  ***************************************************************************/
 void * vm_extend(){
+
 	//check if having enough disk blocks to write if necessary
 	int diskBlock = nextAvailableDiskBlock();
 
@@ -457,7 +448,6 @@ int vm_syslog(void *message, unsigned int len){
 	cout << "syslog \t\t\t" << s << endl;
 
 	return SUCCESS;
-
 }
 
 /***************************************************************************
@@ -467,15 +457,15 @@ int vm_syslog(void *message, unsigned int len){
 /***************************************************************************
  Function: updateInfo
  Inputs:   6 inputs
- 	pointer to node struct
- 	pointer to page_table_entry_t
- 	vpage Number
- 	ppage Number
- 	flag for action
- 	write flag
- Returns:  correctly update the info of a page (the bits & ppage)
+ 		   pointer to node struct
+ 		   pointer to page_table_entry_t
+ 		   vpage Number
+ 		   ppage Number
+ 		   flag for action
+ 		   write flag
+ Returns:  nothing
  Description:
-	
+	       updates the info of a page (the bits & ppage)
  ***************************************************************************/
 void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpage, unsigned int ppage, unsigned int flag, bool write_flag){
 
@@ -506,13 +496,11 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpag
 		tempNode->pid = CurrentPid;
 		tempNode->pageTableEntryP = tempEntry;
 
-		//zero fill because trying to read (what abour writing?)
+		//zero fill because trying to read 
 		zeroFill(ppage);
 
 		//update to true for page in memory
 		(*CurrMapP)[vpage]->resident = true;
-
-		// PhysMemP[nextPhysMem] = true;
 		PhysMemMap[ppage] = tempNode;
 	}
 	else if (flag == CLOCK_NOT_EVICTED_FLAG){
@@ -541,8 +529,6 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpag
 
 		//update residency of page being put to memory to true
 		(*CurrMapP)[vpage]->resident = true;
-
-		// PhysMemP[evictedPage] = true;
 		PhysMemMap[ppage] = tempNode;
 	}
 }
@@ -550,9 +536,9 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry, unsigned int vpag
 /***************************************************************************
  Function: nextAvailablePhysMem
  Inputs:   none
- Returns:  the next available physical memory (in terms of integers)
+ Returns:  the next available physical memory (in terms of integers), o/w -1
  Description:
-	
+	       retrieves the next available physical memory
  ***************************************************************************/
 int nextAvailablePhysMem(){
 
@@ -569,9 +555,9 @@ int nextAvailablePhysMem(){
 /***************************************************************************
  Function: nextAvailableDiskBlock
  Inputs:   none
- Returns:  the next available disk block to be written to (in terms of interger)
+ Returns:  the next available disk block to be written to (in terms of interger), o/w -1
  Description:
-	
+	       retrieves the next available disk block to write to
  ***************************************************************************/
 int nextAvailableDiskBlock(){
 
@@ -587,10 +573,10 @@ int nextAvailableDiskBlock(){
 
 /***************************************************************************
  Function: resident
- Inputs:   none
+ Inputs:   virtual page
  Returns:  true if the page is resident
  Description:
-	
+	       check to see if the virutal page is resident
  ***************************************************************************/
 bool resident(unsigned int vPage){
 	

@@ -4,50 +4,30 @@
  Date:   Dec 2015
 
  Memory pages: 128
- Description: A small program that should not cause any page fault
- 	other than the first time writing/reading
+ Description: Trying to extend more than available disk blocks
 ******************************************************************************/
 
- 	#include <iostream>
+#include <iostream>
 #include <stdint.h>
 #include "vm_app.h"
 
 using namespace std;
 
 int main(){
-	char *a, *b, *c, *d, *e, *f; 
-	a = (char *) vm_extend();
-	b = (char *) vm_extend();
-	c = (char *) vm_extend();
-	d = (char *) vm_extend();
-	e = (char *) vm_extend();
-	f = (char *) vm_extend(); 
-
-	a[0] = 'b';
-	b[1] = 'd';
-	c[2] = 'e';
-	d[3] = 'l';
-	e[4] = 'a';
-	f[5] = '!';
-
-	cout << "c2: " << c[2] << endl;
-
-	a[1] = 'v';
-	a[2] = 'e';
-	a[3] = 'n';
-	a[4] = 'e';
-	a[5] = 'c';
-	a[6] = 'i';
-	a[7] = 'a';
+	char *a = (char*) vm_extend();
+	a[0] = 's';
+	unsigned int i;
+	for (i = 0; i <= 8192; i++){
+		a = (char *) vm_extend();
+		if (a == NULL){
+			cout << "not enough arena size for " << i << endl;
+			break;
+		}
+	}
 	
-	vm_syslog(a, 8);
-	vm_syslog(d, 8);
-	vm_syslog(b, 15);
-	vm_syslog(c, 15);
-	vm_syslog(d, 15);
-	vm_syslog(e, 15);
-	vm_syslog(f, 15);
-	vm_syslog(a, 15);
+	if (i >= 1024){
+		cout << "pager is buggy" << endl;
+	}
 
-	cout << "c2(2): " << c[2] << endl;
+	cout << "test 5" << endl;
 }

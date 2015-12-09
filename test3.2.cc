@@ -1,10 +1,10 @@
 /*****************************************************************************
- File:   test15.2.cc
+ File:   test3.2.cc
  Author: Adela Yang, Venecia Xu & Son Ngo
  Date:   Dec 2015
 
  Memory pages: 2
- Description: syslog before extend
+ Description: Illegal write to an invalid page (fault should return -1)
 ******************************************************************************/
 
 #include <iostream>
@@ -14,20 +14,7 @@
 using namespace std;
 
 int main(){
-	char *a;
-
-	vm_syslog(a,8);
-
-	a = (char *) vm_extend();
-
-	a[0] = 'd';
-	a[1] = 'v';
-	a[2] = 'e';
-	a[3] = 'n';
-	a[4] = 'e';
-	a[5] = 'c';
-	a[6] = 'i';
-	a[7] = 'a';
-	
-	vm_syslog(a, 8);
+	char *a = (char*) vm_extend();
+	a[8193] = 't';
+	cout << "This should not be printed out" << endl;
 }

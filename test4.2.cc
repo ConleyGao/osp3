@@ -4,7 +4,7 @@
  Date:   Dec 2015
 
  Memory pages: 2
- Description: Illegal write to an invalid page (fault should return -1)
+ Description: Illegal read to an invalid page (fault should return -1)
 ******************************************************************************/
 
 #include <iostream>
@@ -15,6 +15,6 @@ using namespace std;
 
 int main(){
 	char *a = (char*) vm_extend();
-	a[8193] = 't';
+	cout << a[8193] << endl;
 	cout << "This should not be printed out" << endl;
 }
