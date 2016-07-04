@@ -550,7 +550,8 @@ void updateInfo(node* tempNode, page_table_entry_t* tempEntry,
  Inputs:   none
  Returns:  the next available physical memory (in terms of integers), o/w -1
  Description:
-	       retrieves the next available physical memory
+	       retrieves the next available physical memory and removes that
+	       memory from the free memory vector
  ***************************************************************************/
 int nextAvailablePhysMem(){
 
